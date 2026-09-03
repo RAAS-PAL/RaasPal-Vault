@@ -1,0 +1,14 @@
+# Obsidian keeps per-machine UI state in here. Shared config (hotkeys, plugins,
+# appearance) is worth committing; which panes you happen to have open is not,
+# and it changes on every launch, so it conflicts constantly between people.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.obsidian/plugins/*/data.json
+
+# Obsidian's own recycle bin.
+.trash/
+
+# OS noise.
+.DS_Store
+Thumbs.db
