@@ -2806,6 +2806,12 @@ component does not know the plot's pixel height). The plot also gained 14px of h
 every panel, cards and detail view included; verified at 1600px (four across, 15px between
 labels) and 1280px (2×2).
 
+### Excel: 100% bars "cut off" (same day, fifth pass)
+A value axis pinned at exactly 1.0 puts a 100% bar's label outside the plot, which reads as the bar
+being clipped. QuickLook hides it — it ignores the fixed axis and autoscales — so the preview looked
+fine and Excel did not. Axis max is now 1.1 with the 0.25 unit, so no tick says 110% and the top just
+has room; the same headroom fix as the site's panels.
+
 ### Unresolved / Next Steps
 - [x] Committed and pushed to `feat/re-kpi-dashboard`: backend `8f1889e`, frontend `252f46f`, plus
   `4b59086` for an unrelated fix that had been sitting uncommitted (`translate="no"` on `<html>`;
