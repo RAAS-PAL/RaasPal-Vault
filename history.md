@@ -2784,6 +2784,19 @@ names nothing. All three bugs above were found that way rather than by opening t
 Excel itself resisted scripting (`save as picture` timed out on AppleEvents), so the formatting is
 schema-verified, not eyeballed.
 
+### Charts matched to the page (same day, third pass)
+Opened in Excel the charts were right in kind but not in look, and the four survey charts had no
+rule where the page heads each with its total (79.2% for installation). Now: one average column
+**per survey** on the Top Box sheet so each chart draws its own rule, labelled at its end as a data
+label on the line's last point ("Avg Installation 79.2%" — a chart cannot hold a floating caption);
+axis 0–100% in quarters with faint gridlines; gap width 60 (the page's 62% slot).
+
+On the site the rule went back onto the four cards **and the detail view**. The reason it had come
+off — the rule struck value labels through, visibly even on the overall panel (March "82%") — is
+fixed at the source: labels sit above the rule on the panel's background, so the rule breaks around
+them. The row of four cards now waits for `2xl`; at `xl` six labelled bars plus the Avg row left the
+labels 3px apart, and as a 2×2 they get 35px.
+
 ### Unresolved / Next Steps
 - [x] Committed and pushed to `feat/re-kpi-dashboard`: backend `8f1889e`, frontend `252f46f`, plus
   `4b59086` for an unrelated fix that had been sitting uncommitted (`translate="no"` on `<html>`;
