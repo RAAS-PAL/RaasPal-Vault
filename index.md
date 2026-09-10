@@ -2,6 +2,10 @@
 
 > Read this file first to understand the current project state before starting any task.
 > For change history and decisions, see [[history]].
+>
+> **This vault has one branch, `main`, shared by every developer.** `git pull` before you start
+> writing and again right before you push — see [README](README.md). Two people appending to these
+> files on the same day will conflict otherwise.
 
 ---
 

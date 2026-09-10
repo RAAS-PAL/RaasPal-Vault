@@ -41,6 +41,27 @@ Both are written up properly in `index.md`, and both have already caused real in
    applied migrations and refuses to start on a mismatch, so editing one breaks the next deploy
    with no local symptom. Add a new migration instead.
 
+## One branch, and pull before you push
+
+**Every developer works on `main`.** The vault keeps one branch and no others. Obsidian has no
+notion of branches — it shows whatever is in the folder — so a second branch does not give someone
+a private draft, it hides notes from everyone who is not standing on it, and an unmerged note is a
+note nobody reads.
+
+**Sync in both directions, every time:**
+
+1. `git pull` **before you start writing**, so you are appending to the newest log rather than to a
+   copy of last week's.
+2. `git pull` **again immediately before you push**, and only then `git push`.
+
+Obsidian saves continuously and everyone appends to the bottom of the same two files, so two people
+writing on the same day diverge within minutes. Pulling first turns what would be a rejected push
+into a small local merge; pushing first leaves the other person to untangle it.
+
+If `history.md` does conflict, **keep both sides.** The log is append-only, so both entries are
+wanted — put them in date order and delete nothing. In `index.md`, where the two sides describe the
+same current state, keep the one that was actually verified and say in the entry which it was.
+
 ## Conventions
 
 - Entries in `history.md` are append-only and dated, newest last. Correct a wrong entry by
