@@ -2734,6 +2734,30 @@ value labels and struck them out, and the total is the headline already.
   have taught the reader the exact error the view exists to prevent. Backend: `Bucket` gains
   `topBoxFromSheet`, `fives`, `ratings` — counts the tally already had; no figure changes.
 
+### Excel export (same day, after a Q&A on presentation formats)
+The user asked which format gets these charts into a deck **editable** — numbers changeable,
+colours changeable. That rules out every image, SVG included: SVG + PowerPoint's Convert to Shape
+gives editable *shapes*, but the numbers are then a drawing, so 79.2 → 80.1 means retyping a label
+and dragging a bar. The answer is a **native PowerPoint chart**, which means handing over data, not
+pictures. Built as `GET /kpi/cm-cases/export` and `GET /kpi/csat/export` (`XlsxBook` + two
+exporters over the POI already in the pom), with an **Export Excel** button beside the period
+selector on the report and CSAT pages.
+
+The layout decisions are the feature — get them wrong and Excel's Insert Chart fights you:
+- **Header on row 1, data from row 2, nothing above, nothing merged.** A title row or a banner and
+  Excel picks the wrong range and loses the series names. This is why provenance goes on an
+  `About` sheet instead of at the top of each table.
+- **Months down, series across** — the axis the deck uses.
+- **Rates are real percentage cells** (0.792 formatted `0.0%`), so the chart axis is a percentage
+  axis rather than one running 0 to 1.
+- **Never-surveyed leaves the cell blank, not 0.** A gap charts as "not surveyed"; a zero bar
+  charts as "nobody was happy".
+- CSAT rows carry `sheet cell` / `pooled` beside every figure — the distinction the feature turns on.
+
+Verified by downloading both files and reading them back: `Period Totals` reproduces the deck
+(86.2 / 79.2 / 91.9 / 89.7 / 70.3), and clicking the button in a headless browser lands a real
+file on disk. 211 backend tests green.
+
 ### Unresolved / Next Steps
 - [x] Committed and pushed to `feat/re-kpi-dashboard`: backend `8f1889e`, frontend `252f46f`, plus
   `4b59086` for an unrelated fix that had been sitting uncommitted (`translate="no"` on `<html>`;
