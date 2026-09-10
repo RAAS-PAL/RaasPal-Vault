@@ -52,7 +52,8 @@ note nobody reads.
 
 1. `git pull` **before you start writing**, so you are appending to the newest log rather than to a
    copy of last week's.
-2. `git pull` **again immediately before you push**, and only then `git push`.
+2. **Commit**, then `git pull` **again**, and only then `git push`. In that order — `git pull`
+   refuses to run while you have uncommitted edits, and Obsidian usually means you have some.
 
 Obsidian saves continuously and everyone appends to the bottom of the same two files, so two people
 writing on the same day diverge within minutes. Pulling first turns what would be a rejected push
