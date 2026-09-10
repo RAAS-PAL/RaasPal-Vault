@@ -2797,6 +2797,15 @@ fixed at the source: labels sit above the rule on the panel's background, so the
 them. The row of four cards now waits for `2xl`; at `xl` six labelled bars plus the Avg row left the
 labels 3px apart, and as a 2×2 they get 35px.
 
+### Labels vs the rule, resolved properly (same day, fourth pass)
+The label-background trick rendered as a rule chopped into dashes between the labels — the user
+called it "interrupting", rightly. Replaced with placement: a value label sits on its bar unless
+the rule would run through it, then it sits just above the rule (band in axis-%, since the
+component does not know the plot's pixel height). The plot also gained 14px of headroom above the
+100% line so a label over a full-height bar does not climb into the "Avg" caption. Applies to
+every panel, cards and detail view included; verified at 1600px (four across, 15px between
+labels) and 1280px (2×2).
+
 ### Unresolved / Next Steps
 - [x] Committed and pushed to `feat/re-kpi-dashboard`: backend `8f1889e`, frontend `252f46f`, plus
   `4b59086` for an unrelated fix that had been sitting uncommitted (`translate="no"` on `<html>`;
