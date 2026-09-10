@@ -43,8 +43,11 @@ An internal RAASPAL platform where the team uploads a customer survey form, AI e
 
 **Live data facts** (Supabase — one database, shared by local development and production):
 
-- Highest applied migration is **V37**. `V34__add_case_report_tables.sql.txt` is parked with a `.txt`
-  suffix so Flyway ignores it; it must be renumbered **V38 or later** when that feature resumes.
+- Highest applied migration is **V37**. **V38 (`case_ticket` + `case_ticket_sync_run`) exists on the
+  backend branch `feat/re-kpi-dashboard` and is NOT yet applied** — it is additive, but it will apply to
+  production the first time anyone starts the backend on that branch. `V34__add_case_report_tables.sql.txt`
+  stays parked with a `.txt` suffix; its `case_ticket` table is what V38 creates, so the rest of it must be
+  renumbered **V39 or later** and rewritten as an ALTER/additions when that feature resumes.
 - `robot_inventory_temp` holds 92 rows — `IN_STOCK=45`, `DEMO=47`.
 - **`UNDER_REPAIR` and `RETURNED_FROM_CUSTOMER` are live but unused.** The states work end to end;
   nobody has set one yet, so the catalogue currently renders two bands rather than four.
@@ -346,6 +349,48 @@ photos → `window.print()` renders the exact Thai paper form (`รายงา�
 - **95 backend tests pass** (11 new). V27 verified applied against live Supabase; full API round-trip exercised
   with real Thai data. ⚠️ **Visual fidelity vs the paper form is still unverified** — see [[history]] 2026-08-05.
 
+### RE KPI Dashboard — three monday boards → live KPI page — 🚧 (built 2026-09-08 on `feat/re-kpi-dashboard`, V38–V41 pending on prod, not deployed)
+
+Replaces the hand-built RE KPI deck. **Data source: monday.com** (Excel later, deferred). Backend and
+frontend branches share the name. Runbook: `RaasPal-Internal-Ops-backend/docs/kpi-local-testing.md`.
+
+- **Boards** (all column ids verified live 2026-09-08): Cleaning Tickets `3451717331`, Delivery Tickets
+  `1647612496`, Installation Tickets `3109668017` → `case_ticket` (V38) + `ticket_type`/`action_date`/
+  `install_date` (V39), nullable `service_line` (V40). **The S/N is the foreign key across the boards**:
+  installations are classified cleaning/delivery by finding their serial on a CM board.
+- **Formulas (RE team, 2026-09-08):** 1st Time Install = no CM on the same S/N within 30 days of the
+  TimeLine's later date; First Time Fix = no further CM on the same S/N within 14 days; SLA = RE Action
+  date within 7 days of Open Date (no close-date column exists). Blank serial → success, reported;
+  unclassifiable → fleet total only; no action date → unknown, never a breach.
+- **Per-board category filter (V41):** `columns.category` + `include-categories`. Used only on the
+  installation board (install-shaped Job Types, provisional); the CM boards count every row — a
+  parts-shipment filter matched the deck's cleaning total only by coincidence and was reverted. Left-out
+  rows are reported as `excludedByCategory`.
+- **Validated against the Jan–Jun 2026 deck:** delivery CM 816 vs 815 and every month within one;
+  cleaning Jan/Feb/Mar/Jun within two, **May 133 vs 38 open**; FTF ≈75% vs 72.3%; installs 59 vs 23 —
+  **open**. See [[history]] 2026-09-08.
+- **API:** `GET /api/v1/kpi/cm-cases?from=YYYY-MM&to=YYYY-MM` (installation + CM counters per month, per
+  line, `unclassifiedTickets`, `definitions`, `provisional`), `POST /monday/sync` (background), `GET
+  /monday/sync/{status,runs}`, `GET /monday/config`, `GET /monday/boards` (ids only), `GET
+  /monday/boards/{id}` (columns + status labels, no rows). ADMIN / RAASPAL_TEAM.
+- **Console** `app/[locale]/kpi/{report,utilization,repeat-cost,csat}` (one route each, sidebar dropdown;
+  old `?tab=` links redirect): the report has four live tiles (1st Time Install, Total CM, FTF, SLA) and
+  PM Complete as a badged placeholder — sourceable from `PM Yip-upload` + the PM contract boards once the
+  visits-due rule is known. Utilization / Repeat Cost are still deck constants.
+- **CSAT (2026-09-09/10)** has its own page and is *not* on the report — it is a monthly hand tally, not
+  a ticket computation. Source: the RE team's four survey workbooks (installation, MA = PM, CM cleaning,
+  CM delivery) in `app.kpi.csat.folder`, replaced monthly (S3 later, same `CsatWorkbookSource` interface).
+  `GET /api/v1/kpi/csat?from&to`, `/csat/source`, `POST /csat/reload`. **Rule: one survey in one month =
+  the month sheet's own Top Box cell (`I17 = AVERAGE(Q10:Q14)`), read by the "Top Box" label, never
+  recomputed; totals over months/surveys (no sheet holds them) = all fives over all ratings, the deck's
+  way.** Every deck figure reproduces exactly. Top Box only; no mean; no cross-check warnings. No migration.
+- **Operational:** scheduler off unless `KPI_MONDAY_SYNC_ENABLED=true`; monday client has 15 s/90 s
+  timeouts + one retry (a hung request once parked the sync for 29 min); page cap 500×100 (50×50 truncated
+  the delivery archive). A first full sync of three boards is ~5 min and ~150 API calls.
+- ⚠️ **STRICT user rule:** never pull ticket rows into a transcript — schema, column names, counts only.
+- ⚠️ Local: `sh mvnw` (wrapper not executable, `mvn` not on PATH); Jenkins owns 8080 → API on 8081;
+  docker Postgres `raaspal-kpi-pg` on 5433; token lives in gitignored `application-local.properties`.
+
 ### Contract Start Date — reports clip to when each robot started — ✅ (deployed 2026-08-20)
 
 A robot deployed mid-month was reporting a full month, counting work done before the customer had it.
@@ -505,6 +550,7 @@ task is narrow enough that the default would be overkill — changing the env va
 
 ## Pending / Not Yet Implemented
 
+- [ ] **RE KPI dashboard — three boards live locally on `feat/re-kpi-dashboard` (2026-09-08), unmerged, V38–V41 unapplied on prod.** Next: PM Complete (waiting on the visits-due rule), Job Type filter on the installation board, RE sign-off on the SLA definition and the cleaning Apr/May gap, rotate the monday token, then merge + deploy
 - [x] Robot catalog populated — 6 robots in Supabase (Gausium MIRA, KEENON C40, CENOBOT L3/L4/L50/SP50)
 - [x] Robot catalog UI — horizontal list grouped by brand (A-Z), pagination, search by brand/model
 - [x] Backend deployed → `https://ai-robotrecommendationsystem-backend.onrender.com`

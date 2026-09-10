@@ -2478,3 +2478,260 @@ save looked successful and the value never appeared. Repointed at the deployed A
 - [ ] RIMS frontend work is **committed but not deployed**; the deployed RIMS has none of the status or packaging UI.
 - [ ] A stale backend was left running on port 8080 against the shared Supabase database. Nothing points at it, but it is live and writable.
 ---
+
+---
+## Session: 2026-09-08 — RE KPI dashboard: monday.com case-ticket sync (backend)
+
+**Date:** 2026-09-08
+**Tags:** #session #backend #database #kpi #monday
+
+### Summary
+First backend slice of the **RE Team KPI dashboard** (plan: `RaasPal-Ops-frontend/docs/re-kpi-dashboard-plan.md`,
+frontend scaffold on `feat/re-kpi-dashboard`). The user's decision on the blocking data-source question:
+**monday.com first, Excel later.** Built on a new backend branch of the same name, `feat/re-kpi-dashboard`,
+committed locally, **not pushed**.
+
+The Cleaning Tickets (`3451717331`) and Delivery Tickets (`1647612496`) boards are now mirrored into a
+`case_ticket` table by a sync, and the CM-case third of the deck — Total CM Cases, SLA within/over, First
+Time Fix / repeat — is computed from it at `GET /api/v1/kpi/cm-cases?from=YYYY-MM&to=YYYY-MM`, per month and
+per service line, in the `YYYY-MM` period shape the frontend's `lib/kpi/period.ts` already uses.
+
+**What could not be verified here.** No `MONDAY_API_TOKEN` exists on this machine, so the column mapping is
+config, not code, and only the ids the 2026-08-26 discovery confirmed are marked verified in
+`application.properties`; the rest are marked assumed. `GET /api/v1/kpi/monday/boards/{id}` lists a board's
+real column ids/titles/types so the mapping can be corrected via env
+(`APP_KPI_MONDAY_BOARDS_0_COLUMNS_CLOSEDATE=…`) without a deploy. Every column is archived verbatim in
+`case_ticket.raw_columns`, so a mapping fixed later applies on the next sync.
+
+**Definitions are provisional and say so.** SLA = calendar days open→close vs the board's limit (Cleaning 3;
+Delivery 3 metro / 5 upcountry, reusing `app.casereport.metro-provinces`); exactly the limit is within; blank
+province takes the upcountry limit; open tickets and closed-without-date are "unknown", never "within".
+Repeat = another ticket on the same service line names one of this ticket's serials and opens within
+`repeat-window-days` (7) after this one closes. The response carries `provisional: true` and a `definitions`
+map so a board number can be traced to its rule. Sign-off against "Case_FTFR_SLA Jan–Jun 2026" still needed.
+
+### Files Modified
+- `db/migration/V38__add_case_ticket_sync.sql` — **new, pending, additive.** `case_ticket` (table 1 of the parked V34 design + service_line, ticket_no, issue_level, close_date, is_closed, serials_normalised) and `case_ticket_sync_run`. ⚠️ Applies to the shared prod DB the first time anyone starts the backend on this branch.
+- `kpi/config/KpiMondayProperties` — `app.kpi.monday.*`: per-board column mapping, group ids (empty = every group), closed statuses, SLA days; fails startup on a half-configured board
+- `kpi/service/CaseTicketMapper` — row → entity; date parsing; serial normalisation (`#`, `/`, `และ`, `Pudu 1` → `PUDU1`); raw-column archive
+- `kpi/service/CaseTicketWriter` — transactional merge; `updated` counted only when monday's `updated_at` moved; unseen rows marked `is_present=false`, never deleted, and only on a complete read
+- `kpi/service/MondayCaseSyncService` — per-board runs with audit rows; one lock for scheduled and manual runs; a failing board does not stop the other; background `start()` for the console
+- `kpi/service/KpiCaseMetricsService` — the aggregation above; ≤24-month range
+- `kpi/scheduler/MondayCaseSyncScheduler` — `KPI_MONDAY_SYNC_ENABLED` off-switch, 01:30 Bangkok
+- `kpi/controller/KpiController` — `/api/v1/kpi/*`, class-level `@PreAuthorize` ADMIN / RAASPAL_TEAM
+- [[MondayBoardReader]] — `describeBoard()`; `readGroup(..., includeUpdates)` with `@include(if:)` so the KPI sync skips comments; empty column list now means **every** column (was none); returns `MondayGroupRead(items, complete)`
+- [[MondayColumnValue]] — gains `column { id title }`; new `MondayColumnRef`, `MondayColumnDef`, `MondayBoardSchema`, `MondayGroupRead`
+- [[GlobalExceptionHandler]] — `MondayApiException` → **502**, was a bare 500
+- `application.properties`, `README.md` — config block, endpoints, env vars
+- Tests: `kpi/CaseTicketMapperTest`, `KpiCaseMetricsServiceTest`, `MondayCaseSyncServiceTest` (mocked reader, real H2), `KpiApiSecurityTest`, `MondayCaseSyncSchedulerTest` — 35 new, all pass; full suite green
+
+### Decisions Made
+- **Reuse the V34 `case_ticket` shape rather than invent a KPI table.** Same two boards, same rows; the Daily Pending Case Report can build on this mirror as V39+ instead of syncing twice. The other eight V34 tables stay parked.
+- **Read every group by default, not just All Case.** Closed tickets move between groups and the KPI needs history; the daily report's All-Case-only rule stays a per-feature choice. Consequence: `is_present=false` now means deleted/archived on monday, and those are excluded from the KPI.
+- **`raw_columns` is TEXT, not JSONB.** Nothing queries into it yet, and TEXT is what H2, the JPA mapping and Postgres agree on with no custom type; `ALTER … TYPE jsonb USING raw_columns::jsonb` later is cheap.
+- **Absent serial = first-time fix, reported.** A repeat cannot be detected without a serial; counting such tickets as failures would punish a blank cell. `withoutSerial` is in every bucket so the reader knows how soft the rate is.
+- **`mvn` is not on PATH and `./mvnw` is not executable on this Mac — use `sh mvnw`.**
+
+### Unresolved / Next Steps
+- [ ] **Set `MONDAY_API_TOKEN` and confirm the column mapping** via `GET /api/v1/kpi/monday/boards/3451717331` and `…/1647612496`, especially close-date columns (without one, SLA is all "unknown") and the Delivery serial column.
+- [ ] **Confirm the KPI definitions with the RE team** against "Case_FTFR_SLA Jan–Jun 2026" — the deck's 1,270 "KPI cases" out of 1,458 implies an exclusion (issue level?) this module does not apply.
+- [ ] Frontend: add a `kpiApi` group to `lib/api.ts` and map `KpiCaseMetricsResponse` onto the `KpiReport` panels for Total CM Cases, SLA and FTFR; the other three KPIs (1st Time Install, PM Complete, CSAT) have no source yet — spreadsheets, per the deck.
+- [ ] Update `docs/re-kpi-dashboard-plan.md` status (it still says "no implementation started") and tick 4.2 / 4.3 / 4.5 / 4.6 partially.
+- [ ] Excel/spreadsheet ingestion for the non-monday KPIs (POI is already a dependency) — deferred by the user.
+- [ ] Remove [[MondayPreviewController]] once the console has the KPI screens; its empty-columns behaviour changed (now returns all columns).
+---
+
+---
+## Session: 2026-09-08 (afternoon) — KPI formulas from the RE team, three boards live, validated against the deck
+
+**Date:** 2026-09-08
+**Tags:** #session #backend #frontend #kpi #monday
+
+### Summary
+Continuation of the morning session. The user supplied a monday token (now in the gitignored
+`application-local.properties`, never committed) and the **RE team's real formulas**, which replaced the
+placeholders. Three boards now sync — Cleaning Tickets `3451717331`, Delivery Tickets `1647612496`,
+**Installation Tickets `3109668017`** — and the console's KPI page computes from them. Local stack:
+docker Postgres `raaspal-kpi-pg` on 5433 (Jenkins owns 8080, so the API runs on **8081**).
+
+**The formulas (user, verbatim intent):**
+- **1st Time Install** — from the installation ticket's TimeLine, the *later* date ("30Sep-8Oct → 8Oct,
+  or the only date"); look forward **30 days**; any CM naming the same S/N scores it 0.
+- **First Time Fix** — after a CM, another CM on the same S/N within **14 days** scores it 0.
+- **SLA** — checked within **7 days** of the CM report, measured to the board's **RE Action** date.
+  Neither ticket board has a close-date column, so this is time-to-first-action, not time-to-close.
+- **The S/N is the foreign key across all three boards.** Installation Tickets has no cleaning/delivery
+  column, so an installation's line is resolved by finding its serial on one of the single-line CM boards.
+
+**Validation — live vs the Jan–Jun 2026 deck, after the full read:**
+| | live | deck |
+|---|---|---|
+| Delivery CM by month | 146·131·136·112·165·126 | 146·131·136·111·165·126 |
+| Cleaning CM by month | 184·114·140·81·133·104 | 184·112·139·66·38·104 |
+| Delivery CM total | 816 | 815 |
+| 1st Time Install cleaning / delivery | 9/15 · 5/6 | 10/17 · 4/6 |
+| First Time Fix | 75.7% | 72.3% |
+| SLA within | 88.2% | 77.2% |
+Delivery is exact. Cleaning Apr (81 vs 66) and May (133 vs 38) are the open gaps — the deck's May cleaning
+figure was itself derived (203−165), so it may be the deck that is off. SLA differs because the deck's
+"checked" definition is unconfirmed.
+
+**Bugs found by running against the real boards:**
+1. **Three Delivery column ids were wrong** — serial is `tags42` (was `asset_owner` = Project), project is
+   `asset_owner`, branch-code is `tags2`. The serial error would have matched repeats on project name.
+2. **No HTTP timeout on the monday client** — a request parked the sync thread for 29 min on 1.8 s CPU;
+   with the shared lock every later run would have been refused until restart, and the nightly scheduler
+   would have gone silent. Now 15 s connect / 90 s read, one retry on transport failure only.
+3. **Page cap of 50×50 silently truncated Delivery's "DONE-Ticket" archive at 2,500** — delivery came out
+   at 280 vs the deck's 815 while cleaning matched. Cap now 500 pages × 100 rows, configurable.
+4. **`case_ticket.service_line` NOT NULL would have crashed the installation sync** (V40 makes it nullable);
+   `case_ticket_sync_run.service_line` likewise (V39).
+5. Run rows left RUNNING by a dead process now flip to FAILED at startup.
+
+**Data facts (counts only — the user set a STRICT rule: never pull ticket rows into a transcript):**
+- Cleaning 2,720 rows (serial on 2,554; RE Action on 2,086). Delivery 5,400 (serial 4,750; RE Action 3,431).
+  Installation 833 (TimeLine parsed on 796; **serial on only 177** — the board rarely records S/N, so 1st
+  Time Install is truly measured for ~a fifth of installs; the rest count as success and are reported as
+  `withoutSerial`). 38 tickets in H1 are unclassified (serial never serviced).
+- Timeline `text` over the API is `YYYY-MM-DD - YYYY-MM-DD` (verified in monday docs); "30Sep-8Oct" is UI only.
+
+### Files Modified
+- `db/migration/V39__add_ticket_type_and_action_dates.sql`, `V40__allow_unclassified_service_line.sql` — additive; **applied to the local docker DB only, not prod**
+- `kpi/*` — `TicketType`, action/install dates, keyword + serial-link classification, `unclassifiedTickets`, startup cleanup; `KpiCaseMetricsService` rewritten to the formulas
+- `casereport/adapters/monday/*` — timeouts + retry, `describeBoard` with `settings_str`, `listBoards`, configurable page cap, per-page progress log
+- `application.properties` — all three boards mapped, every id **verified live**; windows 14/30/7
+- Frontend `feat/re-kpi-dashboard` — `lib/api.ts` `kpiApi`, `lib/kpi/api-types.ts`, `lib/kpi/from-api.ts`, `ReKpiReportTab` fetches live; PM Complete and CSAT tiles **removed** rather than shown as constants
+- `docs/kpi-local-testing.md` — runbook
+
+### Decisions Made
+- **Blank serial = success, reported** rather than failure, for both windows.
+- **Unclassifiable = fleet total only**, never guessed into a side; contested serial (both boards) classifies nothing.
+- **No action date = SLA unknown**, never a breach.
+- **7-day SLA supersedes the vault's 3/5-day note** (that was the daily pending-case report's time-to-close).
+- Deck tiles with no source (PM Complete, CSAT) are dropped from the live page, not faked.
+
+**Late addition — status labels changed two things (V41, commit 7191e44).** Reading each status column's
+`settings_str` (board config, not rows) showed "Installation Tickets" is the RE team's *job* board — Job Type
+has 25 labels and "Installation" is one — and the cleaning board's "Type of case" includes parts shipments.
+Each board can now name a category column and the values that count (`include-categories`, `(blank)` for
+empty cells); rows outside are archived but not counted, reported as `excludedByCategory`. **A cleaning
+filter dropping parts-shipment rows was tried and reverted:** it reproduced the deck's total (639 vs 643)
+but only by coincidence — it removed 84 Feb–Mar tickets the deck's own monthly labels keep (unfiltered
+Jan/Feb/Mar/Jun match within two), and a May surplus cancelled that. Cleaning and delivery count every row;
+the real gap is **May cleaning: deck 38, live 133**. The filter mechanism stays for the installation board. The installation list is provisional: H1 still gives 59
+(Plans 26, Mapping & Training 24, Installation 6, DONE 2, Install mapping 1) vs the deck's 23, and no subset
+of labels gives 23 — **which Job Types count as an installation is a question for the user/RE team.**
+
+### Unresolved / Next Steps
+- [ ] **PM Complete** — sourceable: numerator = "PM Yip-upload" `2957857962` (one row per visit, MA date, S/N tags, groups "Done…"/"RAAS Done"); denominator = contract boards "PM Cleaning" `2048972900` / "PM Delivery" `4129404143` (SN:Robot 1–5, warranty timeline, Supplier Team = Raaspal vs Yip in tsoi/SMC). **Waiting on the user for visits-due-per-robot** (deck's 247.9/274.5 is fractional). "Initial Schedule MA Monthly Plan" is only a document tracker.
+- [ ] Installation "Job Type": confirm which labels are installations (see late addition) — the H1 count is 59 vs the deck's 23.
+- [ ] Explain cleaning Apr/May gap and the SLA definition with the RE team; CSAT has no monday source.
+- [ ] **Rotate the monday token** — it appeared in a screenshot the user pasted.
+- [ ] Nothing pushed; backend `feat/re-kpi-dashboard` is 8 commits ahead of main, frontend 1.
+---
+
+## Session: 2026-09-09 — KPI routes split, CSAT from the survey workbooks, CSAT off the report
+
+**Date:** 2026-09-09
+**Tags:** #session #backend #frontend #kpi #csat
+
+### Summary
+Three things. (1) The KPI page's tab bar became four routes under a sidebar dropdown —
+`/kpi/report`, `/kpi/utilization`, `/kpi/repeat-cost`, `/kpi/csat` — with the old `?tab=` links
+redirecting and keeping their period. (2) CSAT got a real source: the RE team's four monthly survey
+workbooks (installation, MA = PM, CM cleaning, CM delivery). The backend reads them as they are —
+month sheets only, every figure found by label, Top Box and the mean recomputed from the rating
+counts — and **every figure on the deck's CSAT slide reproduces exactly**: Top Box overall 86.2,
+install 79.2, PM 91.9, cleaning 70.3, delivery 89.7; CSAT 96.3; response rate 53.6 (1,118 of 2,084).
+(3) CSAT left the RE report page: it is a monthly hand tally, and that page is for figures computed
+from tickets. It has its own page, which says up front that it is not live and how far it runs.
+
+Definitions settled by the workbooks' own arithmetic, no RE-team question needed: **Top Box = ratings
+of 5 over all ratings across the five questions; the overall is pooled** (the average of the four
+surveys would be 82.8%); **response-rate denominator = customers contacted** (`# ลูกค้า`), not jobs
+done. The parser cross-checks the sheet's own summary cells and reports disagreement — the
+installation workbook's March 2026 sheet has a stale Top Box cell (83.3% vs 9 of 11) and a broken
+Overall CSAT cell (3.47 over counts that cannot average below 4.6). Counts are used; the RE team
+should be told. The mean check tolerates ±0.25 because the sheet averages per-question means while
+the KPI pools ratings, which parts by a few hundredths whenever someone skips a question.
+
+Also today: an afternoon lost to a token/backend mismatch. `.env.local` points `BACKEND_PROXY_TARGET`
+at the Render production backend; a token minted there is a 401 on local, and the sidebar still says
+"signed in". Diagnosed by socket (`lsof -a -p <next-pid> -iTCP`), not latency — latency misled once,
+and the seeded dev credentials went to production as a result. Rotate `admin@raaspal.com`.
+
+### Files Modified
+- Backend (`feat/re-kpi-dashboard`, uncommitted): `kpi/csat/{CsatStream,CsatWorkbookSource,
+  FolderCsatWorkbookSource,CsatWorkbook,CsatWorkbookParser}`, `config/KpiCsatProperties`,
+  `dto/KpiCsatResponse`, `service/KpiCsatService`, controller endpoints `GET /kpi/csat`,
+  `GET /kpi/csat/source`, `POST /kpi/csat/reload`; `application.properties` `app.kpi.csat.*`;
+  tests `CsatWorkbookFixtures`, `CsatWorkbookParserTest` (5), `KpiCsatServiceTest` (10), security
+  test (+3); runbook CSAT section. No migration — parsed on request, cached until a file changes.
+- Frontend (uncommitted): routes `app/[locale]/kpi/{report,utilization,repeat-cost,csat}/`,
+  `lib/kpi/params.ts`, sidebar + mobile submenu, `CsatTab` rewritten on `GET /kpi/csat`,
+  `KpiId` loses `csat`, report grid 6 → 5, `PLACEHOLDER_KPIS = ['pmComplete']`, en/th messages.
+
+### Decisions Made
+- CSAT source = the four workbooks in one folder (`app.kpi.csat.folder`; local profile points at
+  `~/Downloads/csatscorefordashboard`). The team replaces them monthly; S3 later behind the same
+  `CsatWorkbookSource` interface. Nothing persisted, nothing scheduled.
+- CSAT is not on the report page (user, 2026-09-09): "reserved for real time, not dead data".
+- No try-local-then-prod fallback in the proxy: a 401 is not a transport failure, and falling back
+  would serve production data while testing local. Proposed instead: a backend badge in the header
+  and auto-signout when the token's backend differs from the proxy target — not built yet.
+
+### Unresolved / Next Steps
+- [ ] Commit both repos and this vault; the frontend has two days of uncommitted work.
+- [ ] Tell the RE team about the installation workbook's March sheet (two stale cells).
+- [ ] PM Complete visits-due rule, Job Type 59-vs-23, May cleaning 38-vs-133, SLA 71.8-vs-77.2 — unchanged.
+- [ ] Rotate the monday token **and** the seeded app password.
+- [ ] Backend badge + auto-signout on backend change.
+---
+
+## Session: 2026-09-10 — CSAT: the sheet's Top Box cell, and the deck's way of combining
+
+**Date:** 2026-09-10
+**Tags:** #session #backend #frontend #kpi #csat
+
+### Summary
+Settled after a long, painful loop. The final rule: **where a cell exists, show the cell; where
+the deck had to combine sheets, combine them the deck's way.** One survey in one month = the month
+sheet's own Top Box cell (`I17 = AVERAGE(Q10:Q14)`, found by the "Top Box" label — never the
+`Detail_` tabs, never recomputed). Totals over months or surveys — which no sheet holds, verified by
+scanning all 28,211 numeric cells — are all fives over all ratings, which is how the deck was built.
+Every deck figure reproduces exactly: 86.2 / 79.2 / 91.9 / 70.3 / 89.7, response 53.6. Monthly
+per-survey figures are the cells verbatim (installation March = 83.3%, the sheet's number).
+
+What went wrong, for the record: I never looked at the formula in I17. I inferred a method
+(pooling counts) from whether my output matched the deck, defended it when the user said "just read
+the cell", then invented a *second* method (weight monthly cells by responses → 79.5) and defended
+that. Three numbers, three methods, all mine; the data never changed. The user's instruction had
+been the same throughout: read the cell; calculate only what has no cell. The 0.06pt between the
+sheet's AVERAGE-over-questions and the deck's pooling is one March respondent who answered Q1 and
+stopped — real, tiny, and nobody's to fix.
+
+Also today: the mean-based "CSAT 96.3%" removed from the tile (Top Box only), and every
+cross-check warning removed — the dashboard does not audit the RE team's spreadsheet. Then, on the
+user's ask, a row of four small charts under the overall one — installation, PM, CM delivery, CM
+cleaning, each with its period total as the headline. The reference line I first drew on them came
+straight back off: at that width the bars sit close to their own total, so the rule ran through the
+value labels and struck them out, and the total is the headline already.
+
+### Files Modified
+- Backend: `kpi/csat/CsatWorkbook` (MonthAggregate: customers, responses, notEvaluated, topBox,
+  fives, ratings), `CsatWorkbookParser` (cell by label + the I/N column sums), `KpiCsatService`
+  (Tally: one sheet → its cell, several → fives/ratings), DTO docs, tests (5 + 10 + 11 green),
+  runbook CSAT section.
+- Frontend: `CsatBucket` type (six fields), `CsatTab` (Top Box only, response count beside each
+  figure; `StreamCard` — the per-survey chart row, 4-across on a wide screen, 2x2 on a laptop),
+  en/th messages (`kpi.csat.bySurvey.*`).
+
+### Unresolved / Next Steps
+- [x] Committed and pushed to `feat/re-kpi-dashboard`: backend `8f1889e`, frontend `252f46f`, plus
+  `4b59086` for an unrelated fix that had been sitting uncommitted (`translate="no"` on `<html>`;
+  Chrome's translate offer rewrites text nodes and the next route transition then throws
+  NotFoundError on removeChild).
+- [ ] User's 8081 runs an older parser until restarted — its March installation bar reads 82%
+  instead of the sheet's 83.3%, and the two withdrawn cross-check warnings are still showing.
+- [ ] Optional, RE team's call: Q5 is literally "overall satisfaction"; textbook CSAT would use it alone.
+---
