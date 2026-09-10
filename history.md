@@ -2725,13 +2725,23 @@ value labels and struck them out, and the total is the headline already.
 - Frontend: `CsatBucket` type (six fields), `CsatTab` (Top Box only, response count beside each
   figure; `StreamCard` — the per-survey chart row, 4-across on a wide screen, 2x2 on a laptop),
   en/th messages (`kpi.csat.bySurvey.*`).
+- Then a detail view, on the user's ask, matching what the report page does on a panel click:
+  `CsatDetailView` + `lib/kpi/csat.ts` (the survey list, colours and the `?survey=` type, shared by
+  the page, the view and the parser). Its subject is provenance — every figure labelled "sheet
+  cell" or "pooled", the arithmetic drawn where there is any (76 ÷ 96 = 79.2%), and the average of
+  the monthly cells named as what the number is *not* (90.6%). The pool's own bars are pooled
+  months rather than cells, so its notes say that; the first draft claimed cells for both and would
+  have taught the reader the exact error the view exists to prevent. Backend: `Bucket` gains
+  `topBoxFromSheet`, `fives`, `ratings` — counts the tally already had; no figure changes.
 
 ### Unresolved / Next Steps
 - [x] Committed and pushed to `feat/re-kpi-dashboard`: backend `8f1889e`, frontend `252f46f`, plus
   `4b59086` for an unrelated fix that had been sitting uncommitted (`translate="no"` on `<html>`;
   Chrome's translate offer rewrites text nodes and the next route transition then throws
   NotFoundError on removeChild).
-- [ ] User's 8081 runs an older parser until restarted — its March installation bar reads 82%
-  instead of the sheet's 83.3%, and the two withdrawn cross-check warnings are still showing.
+- [x] The 8081 backend was restarted (`sh mvnw spring-boot:run -Dspring-boot.run.profiles=local`,
+  docker Postgres on 5433) to verify the detail view against real data; it had been an IDE launch
+  from `target/classes` since 09:37, three hours older than the parser. March installation now
+  reads 83.3% and the warnings box is gone.
 - [ ] Optional, RE team's call: Q5 is literally "overall satisfaction"; textbook CSAT would use it alone.
 ---
