@@ -2758,6 +2758,32 @@ Verified by downloading both files and reading them back: `Period Totals` reprod
 (86.2 / 79.2 / 91.9 / 89.7 / 70.3), and clicking the button in a headless browser lands a real
 file on disk. 211 backend tests green.
 
+### The export had no charts in it (same day, second pass)
+The user opened the workbook and asked where the charts were — a fair question: the first pass
+exported data shaped *for* charting, which still left them inserting a chart per panel every month.
+The sheets now carry the panels already drawn as real Excel chart objects: same type, same series
+colours, values on the bars, and the dark average rule (a flat line series over a column repeating
+the one figure, since a chart cannot hold a bare horizontal line). CSAT's Top Box sheet holds five
+— the overall panel, then each survey — and the report one per panel sheet.
+
+**Three POI traps, all of which surface only as Excel's "we found a problem with some content":**
+1. `poi-ooxml-lite` **cannot write a stacked chart**: it ships the generated classes but not every
+   compiled schema resource, so `<c:overlap>` (without which Excel draws a stacked chart's series
+   side by side) throws *Could not locate compiled schema resource … stoverlappercent….xsb*. The
+   pom now excludes lite in favour of `poi-ooxml-full`, ~14 MB heavier.
+2. A `<c:lineChart>` **must declare `<c:grouping>`** and POI writes none, so every panel carrying
+   an average rule produced an invalid file.
+3. POI marks a number format **source-linked**, telling the reader to ignore the format code: the
+   rate axis rendered 0–1 and the labels printed `0.682`. Both `numFmt`s now say
+   `sourceLinked="false"`, and data labels need their own as `dLbls`' first child.
+Also: `XDDFLineProperties.setWidth` is in **points**, not EMU.
+
+The lesson worth keeping: `CTChart.validate()` in a test names the offending element, where Excel
+names nothing. All three bugs above were found that way rather than by opening the file — and note
+`qlmanage` renders the bars but ignores chart number formats, so it cannot confirm label formatting.
+Excel itself resisted scripting (`save as picture` timed out on AppleEvents), so the formatting is
+schema-verified, not eyeballed.
+
 ### Unresolved / Next Steps
 - [x] Committed and pushed to `feat/re-kpi-dashboard`: backend `8f1889e`, frontend `252f46f`, plus
   `4b59086` for an unrelated fix that had been sitting uncommitted (`translate="no"` on `<html>`;
