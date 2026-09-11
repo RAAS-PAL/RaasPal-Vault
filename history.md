@@ -6,7 +6,7 @@
 
 ## 2026-05-27 — Backend Steps 1–12
 
-Built all of [[robot-recommendation-api]]: Spring Boot 3.4.5 + Java 21, JWT auth stack ([[AuthTokenFilter]], [[UserDetailsServiceImpl]], [[JwtUtils]]), user management, file upload service, robot catalog entities + CSV/Excel import, AI service interfaces + [[MockAiService]], requirement/recommendation/proposal REST endpoints, Flyway V1–V12.
+Built all of [[RaasPal-Internal-Ops-backend]]: Spring Boot 3.4.5 + Java 21, JWT auth stack ([[AuthTokenFilter]], [[UserDetailsServiceImpl]], [[JwtUtils]]), user management, file upload service, robot catalog entities + CSV/Excel import, AI service interfaces + [[MockAiService]], requirement/recommendation/proposal REST endpoints, Flyway V1–V12.
 
 ---
 
@@ -280,7 +280,7 @@ Added a small, self-contained "CVTE C3 online/offline status" tracking feature o
 - [[CvteDeviceController]] (`cvte/controller/CvteDeviceController.java`) — `GET /api/v1/cvte/devices`, `POST /api/v1/cvte/devices/sync`, `POST /api/v1/cvte/devices/poll-now`, `POST /api/v1/cvte/devices/{deviceId}/poll-now`
 - [[RobotRecommendationApiApplication]] — added `@EnableScheduling`
 - [[application.properties]] — added `app.cvte.kava.*` properties bound to `CVTE_KAVA_BASE_URL/APP_ID/APP_SECRET/SIGN_TYPE/POLLING_ENABLED/POLLING_INTERVAL_MS`
-- [[README]] (`robot-recommendation-api/README.md`) — documented the 4 endpoints, 6 new env vars, and a "how to sync a device" walkthrough
+- [[README]] (`RaasPal-Internal-Ops-backend/README.md`) — documented the 4 endpoints, 6 new env vars, and a "how to sync a device" walkthrough
 
 **Frontend:**
 - [[types/api.ts]] — added `CvteDeviceResponse`, `CvteDeviceSyncRequest`
@@ -1361,7 +1361,7 @@ prompt rules were deliberately **not** reused, because the `Needs confirmation` 
 text on the form.
 
 **Signatures are uploaded per report, not fixed assets.** The first design embedded the two PNGs in
-`robot-recommendation-api/docs/`; the user corrected this — the technician photographs each signed line and
+`RaasPal-Internal-Ops-backend/docs/`; the user corrected this — the technician photographs each signed line and
 uploads both through the UI. They are stored as base64 `data:` URIs in the row rather than via
 [[FileUploadService]], because that writes to local disk and **Render's disk is ephemeral**, so a redeploy would
 silently break reprints of past reports. Since a phone photo is 3–5 MB and base64 inflates it by a third, the
@@ -1459,7 +1459,7 @@ code to save work already done.
   `D:\Work\SoftwareWorkSpace\RaasPalOps`. Cannot be done from inside a session whose cwd is the folder.
 - [ ] Copy the three path-keyed Claude session stores under `~/.claude/projects/` to their new keys, or the
   transcripts and auto-memory become unreachable: `d--Work-AISolution`,
-  `D--Work-AISolution-robot-recommendation-api`, `d--Work-SoftwareWorkSpace-raaspal-rims`
+  `D--Work-AISolution-RaasPal-Internal-Ops-backend`, `d--Work-SoftwareWorkSpace-raaspal-rims`
 - [ ] Write the Lightsail deployment files (`deploy/docker-compose.yml`, `api.env.example`,
   `nginx/raaspal-api.conf`, `deploy.sh`, `DEPLOYMENT.md`) — designed this session, not yet written
 - [ ] **Harvest every env var off Render before decommissioning it.** Copy `PARTNER_JWT_SECRET` and `JWT_SECRET`
@@ -1490,7 +1490,7 @@ spreadsheet was decoded by unzipping the `.xlsx` and parsing its XML — no Pyth
 available on this machine, and `poi-ooxml` would have meant writing a throwaway Java program.
 
 ### Files Modified
-- [[V28__add_inventory_and_robot_lifecycle]] (`robot-recommendation-api/src/main/resources/db/migration/`) —
+- [[V28__add_inventory_and_robot_lifecycle]] (`RaasPal-Internal-Ops-backend/src/main/resources/db/migration/`) —
   `robot_units` gains `status`/`version`/`robot_type`/`robot_id`/`location`; new `inventory_items` +
   `stock_movements` + `inventory_item_sku_seq`
 - [[V29__add_cleaning_specs_and_display_specs]] (same dir) — `robot_specs_cleaning` (101 spec columns,
@@ -1750,7 +1750,7 @@ parameter — a pattern [[CvteDeviceRepository]] had already solved with `CAST(:
 
 ### Files Modified
 
-**Backend — [[robot-recommendation-api]]**
+**Backend — [[RaasPal-Internal-Ops-backend]]**
 - [[V30__add_robot_inventory_temp]] (`db/migration/V30__add_robot_inventory_temp.sql`) — standalone stock table, no FKs
 - [[RobotStockEntry]] (`inventory/entity/RobotStockEntry.java`) — entity for `robot_inventory_temp`
 - [[RobotStockEntryRepository]] (`inventory/repository/`) — split `search`/`searchByStatus` to kill the `lower(bytea)` crash
@@ -2304,7 +2304,7 @@ would have let a `robot_units` row take a store-room-only state — a second pre
 `isStockRoomStatus()` was added, and only [[RobotStockService]] consults it.
 
 ### Files Modified
-- [[V37__add_robot_stock_lifecycle]] (`robot-recommendation-api/src/main/resources/db/migration/V37__add_robot_stock_lifecycle.sql`) — **new.** Widens `status` to `VARCHAR(32)` (`RETURNED_FROM_CUSTOMER` is 22 chars and the column held 20) and adds a nullable `packaging VARCHAR(16)`
+- [[V37__add_robot_stock_lifecycle]] (`RaasPal-Internal-Ops-backend/src/main/resources/db/migration/V37__add_robot_stock_lifecycle.sql`) — **new.** Widens `status` to `VARCHAR(32)` (`RETURNED_FROM_CUSTOMER` is 22 chars and the column held 20) and adds a nullable `packaging VARCHAR(16)`
 - [[RobotUnitStatus]] (`.../robotunit/entity/RobotUnitStatus.java`) — `UNDER_REPAIR`, `RETURNED_FROM_CUSTOMER`, and `isStockRoomStatus()`; appended to the enum so no ordinal shifts
 - [[Packaging]] (`.../inventory/entity/Packaging.java`) — **new.** `BOX` | `UNBOX`
 - [[RobotStockEntry]] (`.../inventory/entity/RobotStockEntry.java`) — `packaging` field, status widened to 32
@@ -2368,11 +2368,11 @@ additionally checked against 16 known dates, including both year boundaries and 
 case, and the TypeScript labels come out byte-identical to the Java ones.
 
 ### Files Modified
-- [[ReportPeriod]] (`robot-recommendation-api/.../report/service/ReportPeriod.java`) — **new.** The window one report covers. `ofMonth` is deliberately *tolerant* (an unparseable month matches no stored `report_month`, exactly as before); `ofWeek` is deliberately *strict* and 400s, because a week is resolved into a range and a typo would otherwise return a confident report for a window nobody asked for. Also builds the period label
+- [[ReportPeriod]] (`RaasPal-Internal-Ops-backend/.../report/service/ReportPeriod.java`) — **new.** The window one report covers. `ofMonth` is deliberately *tolerant* (an unparseable month matches no stored `report_month`, exactly as before); `ofWeek` is deliberately *strict* and 400s, because a week is resolved into a range and a typo would otherwise return a confident report for a window nobody asked for. Also builds the period label
 - [[ReportPreviewService]] (`.../report/service/ReportPreviewService.java`) — `build(sn, month)` kept as-is for its existing callers ([[ReportCacheService]], [[ReportLinkService]], [[ReportEmailService]], [[CustomerReportBundleService]]); new `buildForWeek(sn, week)`; both delegate to one private `build(sn, ReportPeriod)`. `clipToContractStart` generalized from a month to any period start
 - [[RobotTaskReportRepository]] (`.../telemetry/repository/RobotTaskReportRepository.java`) — non-paged `findByRobotUnitIdAndStartTimeBetween` for the week window (the paged sibling already existed for the partner API)
 - [[ReportPreviewController]] (`.../report/controller/ReportPreviewController.java`) — `month` and `week` both optional, **exactly one** required; both together is a 400 rather than a silent winner
-- [[WeeklyReportPeriodTest]] (`robot-recommendation-api/src/test/.../report/WeeklyReportPeriodTest.java`) — **new, 7 tests.** Mon–Sun inclusivity, the Bangkok-vs-UTC Sunday-night boundary, a week spanning two months, both label forms, an empty week, malformed weeks, and the monthly path unchanged
+- [[WeeklyReportPeriodTest]] (`RaasPal-Internal-Ops-backend/src/test/.../report/WeeklyReportPeriodTest.java`) — **new, 7 tests.** Mon–Sun inclusivity, the Bangkok-vs-UTC Sunday-night boundary, a week spanning two months, both label forms, an empty week, malformed weeks, and the monthly path unchanged
 - [[report-week]] (`robot-recommendation-web-raaspal/lib/report-week.ts`) — **new.** `isoWeekOf`, `previousIsoWeek`, `isoWeekRange`, `weekRangeLabel`; the weekly counterpart to [[report-month]]
 - [[ReportPreviewPanel]] (`robot-recommendation-web-raaspal/components/ReportPreviewPanel.tsx`) — Monthly/Weekly toggle, `<input type="week">`, week-aware Gausium sync range and sample-data label, share/email disabled in weekly mode with a note
 - [[api]] (`robot-recommendation-web-raaspal/lib/api.ts`) — `reportApi.preview(sn, { month } | { week })`
@@ -2822,4 +2822,70 @@ has room; the same headroom fix as the site's panels.
   from `target/classes` since 09:37, three hours older than the parser. March installation now
   reads 83.3% and the warnings box is gone.
 - [ ] Optional, RE team's call: Q5 is literally "overall satisfaction"; textbook CSAT would use it alone.
+## Session: 2026-09-11 — Daily Pending Case Report: MK sheet, SLA, freeze and daily sync
+
+**Date:** 2026-09-11
+**Tags:** #session #backend #frontend #database
+
+### Summary
+Took the Daily Pending Case Report from a monday adapter to a report the team can open and check. The parked
+case-report migration was renumbered **V38** and applied to Supabase (Flyway validated all 37 prior migrations
+with no checksum mismatch). The **MK sheet** now generates from the live delivery board, matching the
+`Raw_Delivery` sheet of the 09-Sep-2026 workbook column for column, and is viewable under Reports → Pending cases.
+
+The workbook settled three things that had been assumptions. **Days is inclusive** of the open day — on all five
+raw sheets `Open Date + Days` lands one past the "as of" date in the heading. **The SLA column is text**
+(`over SLA` / `Within SLA` / `On Hold`), not colour. And **MK, Yayoi and Bonus Suki are one customer** (MK
+Restaurant Group), which is why one SLA covers them and why branch prefixes M###, Y### and K### sit together.
+
+The user then found the real problem: monday is edited continuously, so picking a past date returned today's
+board under an old heading. Three mechanisms were built. **A — freeze on generate**: rows are stored in
+`case_report_run.rows_json` the first time a date is generated and served thereafter. **B — daily sync**: both
+boards are snapshotted into `case_ticket`, `case_ticket_update` and `case_ticket_status_history`. **Guard**: a
+past date with no frozen run is now *refused* rather than fabricated.
+
+⚠️ **A was first described as fixing back-dating. It does not, and that claim was wrong.** A freezes whatever it
+captures at generation time, so generating 09 Sep on 11 Sep froze 11 Sep's board. The user caught it by
+noticing both dates showed identical rows (only Days differed). The bad 09 Sep run was discarded and the guard
+added so the mistake cannot recur. **Nothing before 2026-09-11 is recoverable** — the first snapshot is that day.
+
+### Files Modified
+- [[V38__add_case_report_tables]] (`RaasPal-Internal-Ops-backend/src/main/resources/db/migration/V38__add_case_report_tables.sql`) — renumbered from the parked `V34__...sql.txt`; **applied 2026-09-11**
+- [[CaseSource]], [[CaseTicket]], [[CaseTicketUpdate]], [[CaseTicketStatusHistory]] (`casereport/entity/`) — snapshot entities
+- [[CaseReportDefinition]], [[CaseReportRun]], [[CaseRunStatus]] (`casereport/entity/`) — report config and frozen runs; `isReplaceable()` is false only for SENT
+- [[CaseTicketRepository]], [[CaseTicketUpdateRepository]], [[CaseTicketStatusHistoryRepository]], [[CaseReportDefinitionRepository]], [[CaseReportRunRepository]] (`casereport/repository/`)
+- [[SlaStatus]], [[SlaCalculator]] (`casereport/service/`) — `daysOpen()` is the single source for both the Days column and the verdict
+- [[CaseReportRow]] (`casereport/dto/`) — field order is the sheet's column order
+- [[MkPendingReportGenerator]] (`casereport/service/`) — live delivery-board read, MK/Yayoi/Bonus Suki filter, `#` prefix stripped, branch code joined to name
+- [[CaseReportRunService]] (`casereport/service/`) — freeze, discard, and the past-date refusal
+- [[CaseReportDefinitionSeeder]] (`casereport/service/`) — creates MK_PENDING on startup; **never updates**, so DB edits survive restarts
+- [[CaseTicketSyncService]], [[CaseSyncCoordinator]] (`casereport/service/`) — per-board sync, driven from a separate bean
+- [[CaseReportDailyScheduler]] (`casereport/scheduler/`) — snapshot then freeze, 06:15 Bangkok, **off by default**
+- [[CaseReportController]] (`casereport/controller/`) — `GET /mk`, `GET|DELETE /mk/run`, `POST /sync`, `GET /sync/status`
+- [[application.properties]] — `app.casereport.sync-enabled` / `sync-cron`; metro-province comment enriched
+- test `application.properties` — `metro-provinces` and `sync-enabled=false` (this file shadows the main one)
+- [[SlaCalculatorTest]] — 13 tests, replaying all 16 rows of the live delivery sheet
+- [[CasePendingPanel]] (`robot-recommendation-web-raaspal/components/CasePendingPanel.tsx`) — new read-only review screen
+- [[ReportsClient]], `reports/page.tsx`, [[api]], `types/api.ts`, `messages/en.json`, `messages/th.json` — third tab group
+- `robot-recommendation-web-raaspal/.env.local` — switched to MODE B (gitignored, local only)
+
+### Decisions Made
+- **SLA is 3 days inside the six greater-Bangkok provinces, 5 elsewhere, for MK/Yayoi/Bonus Suki delivery** — the user's statement, confirming V38. Compared with `>`, so a case at exactly the limit is still within SLA. Cleaning is 3 days everywhere, and when both thresholds are equal the province is never consulted.
+- **Province comes from `color_mm6mwh74`**, a dropdown on the delivery board only. Verified 2026-09-10: 14 labels, all open tickets filled. The six metro labels happen to be Latin and the eight upcountry ones Thai; both scripts are listed in config so a later `กรุงเทพมหานคร` cannot fall through to the 5-day threshold.
+- **A missing province yields no verdict, never a default** — defaulting to 5 would show a late Bangkok case as on time.
+- **Column ids live in each generator, not a shared map.** `text` is Solution on delivery but Main Issue on cleaning; `status_1` is Sup Status on delivery but Issue Level on cleaning. A shared mapping is one place to get both boards wrong.
+- **Refuse a past date rather than fabricate it.** A live read stamped with an old date is convincing precisely because Days changes with `asOf` — so it is worse than an error.
+- **Each board syncs in its own transaction, from a separate coordinator bean.** `@Transactional` on a method called via `this` does nothing; the first two attempts failed with "No EntityManager with actual transaction available". Separate transactions also mean a cleaning failure does not roll back the delivery snapshot.
+- **Scheduler off by default**, matching `ReportDeliveryScheduler`.
+
+### Unresolved / Next Steps
+- [ ] ⚠️ **Turn the scheduler on** (`CASE_REPORT_SYNC_ENABLED=true`). Every day it stays off is a day that can never be reported on. Until then, someone must generate the report each morning or that date is lost.
+- [ ] **The deployed backend has none of this.** Deploying needs `MONDAY_API_TOKEN` set on Render — `application.properties` defaults it to empty, so the endpoint would exist and fail on its first monday call.
+- [ ] **Excel export not built.** `poi-ooxml` is already in `pom.xml`. The workbook shows the MK sheet should be one sheet in `Raw_Delivery` layout; an All Case export should mirror the full workbook.
+- [ ] **Snapshot-backed reconstruction not built.** The generator still reads monday live. Past dates are answered only by frozen runs. `case_ticket` is updated in place, so a reconstruction could recover status (from history) but not problem text, branch or province as they stood.
+- [ ] **No "regenerate from board" control in the UI** — `?refresh=true` works on today's draft but the panel never sends it.
+- [ ] Two rows of the 09-Sep file disagree with the SLA rule: M453 โรบินสัน ฉะเชิงเทรา (7 days) and M057 ศรีราชานคร (6 days) both print "Within SLA" though both are upcountry and past 5 days. Pinned as expected divergences in `SlaCalculatorTest`. Worth asking whether a scheduled RE On Site date exempts a case — both rows have one.
+- [ ] Header typos `Brucn` and `Solutiom` in the live template — keep verbatim or correct? Unanswered.
+- [ ] The earliest sync attempts ran with no transaction, so each `save()` committed individually while the bulk close failed. The resulting rows are correct, but those runs were not atomic.
+- [ ] `activity_logs` on monday retains column changes with previous and new values — a possible backfill route for the recent past. Timestamp units unconfirmed (a naive conversion produced year 2536) and retention unknown.
 ---
