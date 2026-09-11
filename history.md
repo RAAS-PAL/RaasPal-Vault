@@ -2949,7 +2949,7 @@ branch reworks to an `ALTER` at V40+ after this merge.
 - **Merge, not squash** — matching the team's PR #4/#5 history.
 
 ### Unresolved / Next Steps
-- [ ] ⚠️ **Deploy `main` (`cf04b84`) to Lightsail** with `bash deploy/deploy.sh` — `deploy/api.env` needs `MONDAY_API_TOKEN` (and `ANTHROPIC_API_KEY` for real Solution lines). Expect Flyway "Migrating schema public to version 39 - add pm planning tables". **Do not deploy the pre-merge `main`** — it lacked V38 and would crash-loop against prod's v38.
+- [x] **Deployed to Lightsail 2026-09-11 10:21 UTC** via `bash deploy/deploy.sh` — up after 60 s; Flyway `Current version of schema "public": 38` → `Migrating … to version "39 - add pm planning tables"` → `now at version v39`; `Started … in 41.8 seconds`; container `(healthy)`; `https://api.raaspal.com/v3/api-docs` 200 and `/actuator/health` 401 (expected — not permitted); 1.6 GiB used of 7.6, no swap. The authenticated case-report check was run with placeholder credentials and so returned 401 — still to be done with a real login, and `MONDAY_API_TOKEN` / `ANTHROPIC_API_KEY` presence in `deploy/api.env` is unverified.
 - [ ] Set `MONDAY_API_TOKEN` on Render too while it is still serving.
 - [ ] After deploying, regenerate today's MK draft with `?refresh=true` — drafts frozen before the UTC fix may date early-morning comments a day early.
 - [ ] PR #6 follow-ups: split `CaseReportRunService.rowsFor` so the Haiku calls run outside the transaction; catch `uq_case_report_run_day` on a concurrent first generation and serve the stored run; consider ADMIN-only `DELETE /mk/run` for past dates.
