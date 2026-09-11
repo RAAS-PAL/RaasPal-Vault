@@ -2879,7 +2879,7 @@ added so the mistake cannot recur. **Nothing before 2026-09-11 is recoverable** 
 - **Scheduler off by default**, matching `ReportDeliveryScheduler`.
 
 ### Unresolved / Next Steps
-- [ ] ⚠️ **Turn the scheduler on** (`CASE_REPORT_SYNC_ENABLED=true`). Every day it stays off is a day that can never be reported on. Until then, someone must generate the report each morning or that date is lost.
+- [x] ~~Turn the scheduler on~~ — done later the same day on Lightsail; see session 2026-09-11b.
 - [ ] **The deployed backend has none of this.** Deploying needs `MONDAY_API_TOKEN` set on Render — `application.properties` defaults it to empty, so the endpoint would exist and fail on its first monday call.
 - [ ] **Excel export not built.** `poi-ooxml` is already in `pom.xml`. The workbook shows the MK sheet should be one sheet in `Raw_Delivery` layout; an All Case export should mirror the full workbook.
 - [ ] **Snapshot-backed reconstruction not built.** The generator still reads monday live. Past dates are answered only by frozen runs. `case_ticket` is updated in place, so a reconstruction could recover status (from history) but not problem text, branch or province as they stood.
@@ -2956,5 +2956,7 @@ branch reworks to an `ALTER` at V40+ after this merge.
 - [ ] `deploy/api.env.example` trap (pre-existing): bare `KEY=` lines give Spring an *empty string*, not the default — 8 numeric/cron keys crash startup if left bare (`CVTE_KAVA_POLLING_INTERVAL_MS`, `PARTNER_*`, `REPORT_CACHE_*`), 11 silently lose their default. Comment them out instead.
 - [ ] Coworker's KPI branch: its V38 → `ALTER TABLE case_ticket ADD COLUMN …` + `CREATE case_ticket_sync_run` at **V40**, its later ones V41–V43; rebuild his local DB.
 - [ ] Console commit `cafd93a` on `feat/dailycasereport-page` carries a backend commit message (content is right). Optional amend before its PR.
-- [ ] Scheduler still off; Excel export, AOT and ALL_PENDING generators still unbuilt (see previous session).
+- [x] **Scheduler turned on 2026-09-11 ~10:40 UTC** — `CASE_REPORT_SYNC_ENABLED=true` added to Lightsail's `deploy/api.env`, `docker compose up -d` recreated the container (2.3 s), `docker compose exec api env` confirmed the value inside. Render never had the property, so Lightsail is the only instance that can run it.
+- [ ] **Verify the first unattended run on 2026-09-12 after 06:15 Bangkok** — log lines `Daily case sync: board …` ×2 and `Froze the MK_PENDING report for 2026-09-12`, or `GET /api/v1/case-reports/mk/run?asOf=2026-09-12` → `exists:true`.
+- [ ] Excel export, AOT and ALL_PENDING generators still unbuilt (see previous session).
 ---
