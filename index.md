@@ -41,7 +41,7 @@ An internal RAASPAL platform where the team uploads a customer survey form, AI e
 
 | Repo | HEAD | Tree | Deployed |
 |---|---|---|---|
-| [[RaasPal-Internal-Ops-backend]] | `06e1935` weekly report period | clean | ✅ **live on Render** — verified: `?week=` is parsed and `packaging` is returned |
+| [[RaasPal-Internal-Ops-backend]] | `cf04b84` on `main` — PR #6 merged 2026-09-11 (case report + Solution AI + PM planner V39) | clean | ⚠️ **NOT deployed** — Render still runs the pre-case-report build; Lightsail needs `bash deploy/deploy.sh` + `MONDAY_API_TOKEN` (see [[history]] 2026-09-11b) |
 | [[robot-recommendation-web-raaspal]] | `888a621` CM report one-page fit | clean | ❓ Vercel state not verified |
 | [[raaspal-rims]] | `44ed937` store-room statuses + packaging | clean | ❓ Vercel state not verified |
 
@@ -57,11 +57,12 @@ An internal RAASPAL platform where the team uploads a customer survey form, AI e
   the case-report V38; the KPI branch reworks after the case-report merge lands.** Concretely, on that
   branch: (1) its V38 becomes `ALTER TABLE case_ticket ADD COLUMN` for the columns the case-report table
   lacks — `service_line`, `ticket_no`, `issue_level`, `close_date`, `is_closed`, `serials_normalised` — plus
-  `CREATE TABLE case_ticket_sync_run`; (2) its V39–V41 become **V40–V42**; (3) its local Docker DB is
-  rebuilt. ⛔ Until then, **do not start that branch's backend against production** — Flyway will see prod's
+  `CREATE TABLE case_ticket_sync_run`, numbered **V40** (V39 went to the PM planner in PR #5); (2) its
+  V39–V41 become **V41–V43**; (3) its local Docker DB is rebuilt. ⛔ Until then, **do not start that branch's backend against production** — Flyway will see prod's
   v38 is "add case report tables", not "add case ticket sync", and refuse to start. Two overlapping date
   columns need one owner: case-report `re_action_date` vs KPI `action_date`.
-- **Next free migration: V39.** Coordinate — the KPI rework will claim V39–V42.
+- **V39 is taken — `V39__add_pm_planning_tables.sql` (PM 52-week planner), on `main` since PR #5/#6, applies on
+  the next deploy. Next free migration: V40.** Coordinate — the KPI rework will claim V40–V43.
 - `robot_inventory_temp` holds 92 rows — `IN_STOCK=45`, `DEMO=47`.
 - **`UNDER_REPAIR` and `RETURNED_FROM_CUSTOMER` are live but unused.** The states work end to end;
   nobody has set one yet, so the catalogue currently renders two bands rather than four.
@@ -367,8 +368,9 @@ photos → `window.print()` renders the exact Thai paper form (`รายงา�
 
 > ⚠️ **Migration numbers in this section are superseded — see the V38 collision note under Deployment
 > Snapshot.** V38 went to production as the case-report tables on 2026-09-11, so this branch's V38 must become
-> an `ALTER TABLE case_ticket` and its V39–V41 shift to V40–V42. Do not start this branch against production
-> until that rework is done.
+> an `ALTER TABLE case_ticket` and — now that the PM planner holds V39 on `main` — its later migrations shift
+> to **V41–V43**, with the `ALTER` at **V40**. Do not start this branch against production until that rework
+> is done.
 
 Replaces the hand-built RE KPI deck. **Data source: monday.com** (Excel later, deferred). Backend and
 frontend branches share the name. Runbook: `RaasPal-Internal-Ops-backend/docs/kpi-local-testing.md`.
@@ -614,9 +616,10 @@ task is narrow enough that the default would be overkill — changing the env va
   actually being changed — because the picker used to post back the image endpoint's URL instead of the image.
   Worth confirming on Vercel before telling the warehouse the feature is available
 - [x] **Weekly performance report (preview only) — BUILT 2026-08-31.** [[ReportPeriod]] + `buildForWeek`, `week=YYYY-Www` on `/api/v1/reports/preview`, Monthly/Weekly toggle in [[ReportPreviewPanel]]. No migration. 134 tests pass; `npm run build` clean (see session 2026-08-31)
-- [x] **Daily Pending Case Report — MK sheet BUILT 2026-09-11.** V38 applied. Reports → Pending cases → MK pending generates the `Raw_Delivery` layout from the live delivery board; SLA 3 days in the six greater-Bangkok provinces / 5 elsewhere, Days inclusive. Reports freeze on first generation and a past date with no frozen run is **refused**, not fabricated. 147 tests pass (see session 2026-09-11)
+- [x] **Daily Pending Case Report — MK sheet BUILT 2026-09-11, merged to `main` in PR #6.** V38 applied. Reports → Pending cases → MK pending generates the `Raw_Delivery` layout from the live delivery board; SLA 3 days in the six greater-Bangkok provinces / 5 elsewhere, Days inclusive. Reports freeze on first generation and a past date with no frozen run is **refused**, not fabricated. **Solution column is written by Haiku from the comment thread** ([[CaseSolutionAiService]]); a typed board value wins. 200 tests pass (see sessions 2026-09-11 and 2026-09-11b)
+- [ ] **PR #6 review follow-ups** (not blocking): Haiku calls run inside `CaseReportRunService.rowsFor`'s transaction; two concurrent first generations race on `uq_case_report_run_day`; `DELETE /mk/run` can discard an unrecoverable past draft. Listed on the PR.
 - [ ] ⚠️ **Turn on the daily case-report scheduler** (`CASE_REPORT_SYNC_ENABLED=true`, 06:15 Bangkok). It snapshots both boards then freezes the day's report. **Every day it is off is a day that can never be reported on** — nothing before 2026-09-11 exists.
-- [ ] **Case report is not deployed.** Render needs the backend deployed *and* `MONDAY_API_TOKEN` set, or the endpoint fails on its first monday call. Local testing uses MODE B in the console's `.env.local`.
+- [ ] ⚠️ **Case report is merged but not deployed.** Deploy `main` (`cf04b84`) on Lightsail with `bash deploy/deploy.sh`; `deploy/api.env` needs `MONDAY_API_TOKEN` (and `ANTHROPIC_API_KEY`, or Solution lines come from the mock). Flyway will apply V39 on that start. Never deploy a `main` older than `faa74a9` — it lacked V38 and crash-loops against prod. Local testing uses MODE B in the console's `.env.local`.
 - [ ] **Case report Excel export** not built (`poi-ooxml` already in `pom.xml`); AOT and ALL_PENDING generators not built. AOTGA has no SLA column and needs AI over comment threads — do it last.
 - [ ] **Weekly *sending* is not built** — needs a period-aware [[ReportLink]] (`report_month` is `VARCHAR(7)`; widen it or add a period column — **V39 or later**, V38 is taken), then email + the public token page. The `WEEKLY` cadence on `deployments` (V16) is still inert, and the customer bundle is still monthly-only
 - [ ] **Backfill contract start dates per robot** under Tools → Robots — **1 of 163 deployed robots done as of 2026-08-20**. Until a robot has a date it reports whole months, so mid-month starts are still over-reported

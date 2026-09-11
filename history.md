@@ -2889,3 +2889,72 @@ added so the mistake cannot recur. **Nothing before 2026-09-11 is recoverable** 
 - [ ] The earliest sync attempts ran with no transaction, so each `save()` committed individually while the bulk close failed. The resulting rows are correct, but those runs were not atomic.
 - [ ] `activity_logs` on monday retains column changes with previous and new values — a possible backfill route for the recent past. Timestamp units unconfirmed (a naive conversion produced year 2536) and retention unknown.
 ---
+---
+## Session: 2026-09-11b — Solution column via Haiku, merge with PM planner, PR #6 reviewed and merged
+
+**Date:** 2026-09-11
+**Tags:** #session #backend #ai #deployment #config
+
+### Summary
+Three things landed on `main` in one PR. **First, the Solution column.** It was blank on seven tickets in eight,
+and the earlier session's design — "a status log built from consecutive snapshots, no AI" — was wrong: the
+09-Sep workbook's Solution lines are a human *paraphrase of the comment thread*, one dated entry per step,
+in a fixed house vocabulary (`อยู่ระหว่าง…`, `รอ…`, `เจ้าหน้าที่เข้าซ่อม`). So [[MkPendingReportGenerator]] now
+sends each ticket's comments (oldest first, intake form dropped) to a new [[CaseSolutionAiService]], implemented
+by [[ClaudeAiService]] on Haiku (`claude-haiku-4-5-20251001`) and by [[MockAiService]] without a key. A value
+somebody typed into the board column still wins. The one rule the model kept breaking — a date range across two
+months, `25-11 Sep` — is enforced deterministically in [[SolutionLine]] rather than re-prompted.
+
+**Second, the merge.** The coworker's PM 52-week planner reached `main` as **V39** (with the case-report V38
+already on production, so main alone would have failed Flyway validation). `main` was merged into `dev-1`
+(`faa74a9`); V36–V39 all present, nothing dropped — the CM report (V27) and the case report (V38) were both
+checked file by file after the user asked where the CM code was.
+
+**Third, PR #6 (`dev-1` → `main`), reviewed before merging.** The review found eight things; four were real
+defects and were fixed on the branch (`cb40b6f`) before the merge (`cf04b84`):
+1. **The Thai metro provinces never matched.** Spring Boot reads `.properties` as ISO-8859-1 (verified in the
+   `spring-boot-3.4.5.jar` loader), so `กรุงเทพมหานคร` and the rest loaded as mojibake and a Thai-spelled metro
+   province would have taken the 5-day SLA. Not yet triggered — the board's six metro labels are Latin — but
+   the config existed precisely for the day that changes. Now `\uXXXX`-escaped in both properties files, with
+   [[MetroProvincesPropertyTest]] loading both through Spring's own loader.
+2. **Solution dates were UTC.** monday's `created_at` ends in `Z`; a comment posted before 07:00 Bangkok was
+   dated the previous day. The generator converts to `Asia/Bangkok`; the sync pins `posted_at` to UTC explicitly.
+3. **`25-11-Sep` (hyphen before the month) went through unsplit** — only the space form was recognised.
+4. `MockAiService` used `"\s+"`, which since Java 15 is a literal-space pattern, not whitespace.
+The other four are logged below as follow-ups, none blocking a manual, single-reviewer rollout. Suite: **200
+tests pass** (191 after the merge + 9 new).
+
+The Monday API key was moved out of the local override into env config (`MONDAY_API_TOKEN`), and the V38
+numbering collision with the coworker's KPI branch was settled: production keeps the case-report V38; his
+branch reworks to an `ALTER` at V40+ after this merge.
+
+### Files Modified
+- [[CaseSolutionAiService]] (`ai/service/`) — new interface, `summariseProgress(CaseProgressRequest)`; never throws, empty string for nothing
+- [[ClaudeAiService]] (`ai/service/`) — implements it on Haiku; [[MockAiService]] — deterministic dated condensation; regex fix
+- [[AiPromptTemplates]] (`ai/prompt/`) — `caseSolutionSystemPrompt()`, transcribed from the workbook's style
+- [[CaseProgressRequest]] (`casereport/dto/`) — branch, problem, statuses, asOf, `List<Comment(postedOn, author, body)>`
+- [[SolutionLine]] (`casereport/service/`) — cross-month range splitter; now both `25-11 Sep` and `25-11-Sep`; one-day sides print `31-Aug`; impossible first day left as written
+- [[MkPendingReportGenerator]] — `solutionFor()`; comment dates in Bangkok; future-dated tickets skipped on a back-dated run
+- [[CaseTicketSyncService]] — `posted_at` pinned to UTC; stale "status log" Javadoc corrected (also in [[CaseTicket]], [[CaseTicketStatusHistory]], [[CaseReportRow]], [[CaseReportDailyScheduler]])
+- [[application.properties]] + test copy — `app.monday.api.token=${MONDAY_API_TOKEN:}`, `MONDAY_UPDATES_PER_ITEM`, metro provinces unicode-escaped
+- `deploy/api.env.example`, `deploy/DEPLOYMENT.md`, `README.md` — monday + case-report settings documented for Lightsail
+- [[SolutionLineTest]] (11), [[MetroProvincesPropertyTest]] (4), [[MkPendingReportGeneratorTest]] (1) — new/extended
+- Merged from main: [[V39__add_pm_planning_tables]], `pm/` package, `deploy/preview/` stack, monday DTO changes (`MondayItemRef`)
+
+### Decisions Made
+- **Solution is a model paraphrase, not a snapshot-derived log.** Verified against the workbook line by line; the earlier claim in this vault was wrong and is superseded. A typed board value always wins over the model.
+- **Haiku, not Sonnet, for the Solution line** — one call per ticket per generation, short output, house-style constrained; cost matters more than nuance here.
+- **The month-boundary rule lives in code, not the prompt.** A paraphrase is not deterministic; a rule the report cannot break has to be enforced where it can be tested.
+- **Fix the review's real defects before merging, defer the structural ones.** AI calls inside `@Transactional`, the concurrent-first-generation race, and discard-of-past-runs are documented on PR #6 rather than merged as workarounds.
+- **Merge, not squash** — matching the team's PR #4/#5 history.
+
+### Unresolved / Next Steps
+- [ ] ⚠️ **Deploy `main` (`cf04b84`) to Lightsail** with `bash deploy/deploy.sh` — `deploy/api.env` needs `MONDAY_API_TOKEN` (and `ANTHROPIC_API_KEY` for real Solution lines). Expect Flyway "Migrating schema public to version 39 - add pm planning tables". **Do not deploy the pre-merge `main`** — it lacked V38 and would crash-loop against prod's v38.
+- [ ] Set `MONDAY_API_TOKEN` on Render too while it is still serving.
+- [ ] After deploying, regenerate today's MK draft with `?refresh=true` — drafts frozen before the UTC fix may date early-morning comments a day early.
+- [ ] PR #6 follow-ups: split `CaseReportRunService.rowsFor` so the Haiku calls run outside the transaction; catch `uq_case_report_run_day` on a concurrent first generation and serve the stored run; consider ADMIN-only `DELETE /mk/run` for past dates.
+- [ ] `deploy/api.env.example` trap (pre-existing): bare `KEY=` lines give Spring an *empty string*, not the default — 8 numeric/cron keys crash startup if left bare (`CVTE_KAVA_POLLING_INTERVAL_MS`, `PARTNER_*`, `REPORT_CACHE_*`), 11 silently lose their default. Comment them out instead.
+- [ ] Coworker's KPI branch: its V38 → `ALTER TABLE case_ticket ADD COLUMN …` + `CREATE case_ticket_sync_run` at **V40**, its later ones V41–V43; rebuild his local DB.
+- [ ] Console commit `cafd93a` on `feat/dailycasereport-page` carries a backend commit message (content is right). Optional amend before its PR.
+- [ ] Scheduler still off; Excel export, AOT and ALL_PENDING generators still unbuilt (see previous session).
+---
