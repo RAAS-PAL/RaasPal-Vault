@@ -3011,7 +3011,7 @@ PM planner), and the earlier vault note saying the page was unmerged was correct
 - **Board rows cannot be deleted from the report** — that is monday's job, or the deletion silently reverts.
 
 ### Unresolved / Next Steps
-- [ ] **Merge backend PR #8 + console PR #8, then `deploy.sh`.** The next report reuses the run service, so merge first.
+- [x] **Backend PR #8 and console PR #8 merged 2026-09-13** (`ce89edd`, `77565ca`). Lightsail deploy of `ce89edd` pending — `bash deploy/deploy.sh`; Vercel picks up the console on its own.
 - [ ] **Next report: Raw_Cleaning** (cleaning board, SLA 3 everywhere, no province), then Raw_Makro (same board, project filter), รอ QT, and RAW_AOTGA last. Verify on the board which project values split Cleaning vs Makro.
 - [ ] Ask the RE team: is M057 still pending (move it back to All Case)? What is "Open Date" on their sheet — approval date? Y084 serial: ticket `…6078` vs sheet `…4095`?
 - [ ] Board data error spotted: every ศรีราชา ticket carries Province **Samut Sakhon** (metro, 3 days); Sriracha is in **Chonburi** (5 days). Worth fixing on the board's dropdown.
