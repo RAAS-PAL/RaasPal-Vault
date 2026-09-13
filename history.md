@@ -3056,3 +3056,33 @@ because ~13 open cases are waiting on a customer's quotation (their รอ QT sh
 - [ ] Compare Cleaning and Makro against the team's latest sheets; decide the status filter (รอลูกค้าพิจารณาใบเสนอราคา → รอ QT sheet; Sup Status Done → pending or not?).
 - [ ] Next sheets: รอ QT รายการซ่อม (cross-board, waiting-for-quotation), then RAW_AOTGA (no SLA; part columns from comments).
 ---
+---
+## Session: 2026-09-13c — Confirmation before every send, delete and revoke
+
+**Date:** 2026-09-13
+**Tags:** #session #frontend
+
+### Summary
+"Run delivery now" emailed every customer on a single click, and the other sends had no guard either. A
+`useConfirm()` hook and dialog ([[confirm-dialog]], `components/ui/`) now sits in front of every button that
+emails a customer or cannot be undone. Each dialog states the specific act — recipient count or name, month,
+"cannot be recalled" — and the confirm button carries the action's own label. Focus lands on Cancel and Escape
+cancels, so a stray Enter cannot send. Guarded now: the monthly run, single-customer send and per-row resend
+([[ReportAutomationPanel]]), the company bundle send ([[CustomerBundlePanel]]), the preview's report email
+([[ReportPreviewPanel]]), the announcement ([[CustomerEmailPanel]]), and Remove row ([[CasePendingPanel]]).
+The browser-`confirm()` sites (customer delete, key revoke, robot unassign, bulk Monthly, deactivate) moved
+onto the same dialog. Robot deletion keeps its password check; proposal deletion its inline two-step. Merged as
+console PR #10 (`771b5cb`); Vercel deploys it, no backend change.
+
+### Files Modified
+- `components/ui/confirm-dialog.tsx` — new: `useConfirm()` → `{ confirm(options): Promise<boolean>, confirmDialog }`
+- [[ReportAutomationPanel]], [[CustomerBundlePanel]], [[ReportPreviewPanel]], [[CustomerEmailPanel]], [[CasePendingPanel]], [[CustomersPanel]], [[PartnersPanel]], [[RobotsPanel]] — wired
+
+### Decisions Made
+- **One dialog for all serious actions**, in the app's words, rather than the browser popup — so a reader confirms a specific act, and so Cancel has focus.
+- eslint on `main` already reports 8 `set-state-in-effect` / `use-memo` errors in these files (untouched, pre-existing); `npm run build` does not run eslint, so they do not block.
+
+### Unresolved / Next Steps
+- [ ] Click through each guarded button on ops.raaspal.com once Vercel has deployed `771b5cb`.
+- [ ] Optional: clear the 8 pre-existing eslint errors (`useEffect(() => setVisibleCount(PAGE_SIZE), [query])` pattern ×5, `useMemo(fn, [])` ×2) in a tidy-up PR.
+---
