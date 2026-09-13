@@ -2960,3 +2960,60 @@ branch reworks to an `ALTER` at V40+ after this merge.
 - [ ] **Verify the first unattended run on 2026-09-12 after 06:15 Bangkok** — log lines `Daily case sync: board …` ×2 and `Froze the MK_PENDING report for 2026-09-12`, or `GET /api/v1/case-reports/mk/run?asOf=2026-09-12` → `exists:true`.
 - [ ] Excel export, AOT and ALL_PENDING generators still unbuilt (see previous session).
 ---
+---
+## Session: 2026-09-13 — Case report: compared with the RE team's sheet; rows editable and addable; Days exclusive
+
+**Date:** 2026-09-13
+**Tags:** #session #backend #frontend #deployment
+
+### Summary
+The MK report was compared row by row against the RE team's hand-built "Pending case Delivery as of 11 Sep
+2026". **Our 10 rows were their 10 cases; their 11th (M057 ศรีราชานคร) sits in the board's "Done Check
+เพื่อปิดเคส" group, not "All Case"** — checked live, and two other tickets of identical shape (Y049, M368)
+were *not* on their sheet, so it is not a rule, it is a case moved too early or carried over. Three further
+differences were rules in the team's heads rather than bugs: (1) on 5 rows their **Open Date is the date MK
+approved the quote / parts shipped**, not the ticket's open date — no board column holds it, and it flips
+M442 and M177 from over to within SLA; (2) their **11-Sep sheet counts Days exclusively** (opened today = 0)
+while the 09-Sep workbook counted inclusively; (3) Y084's serial differs from the ticket's. The RE On Site and
+บางพลี Open Date differences were only timing — the board was edited at 19:12 Bangkok, after the 17:30 freeze.
+
+The user's decision: **generate, then let the staff correct on the web.** Days becomes exclusive (their newer
+file wins; a reviewer overtypes one row if needed); the Open Date rule is left alone; the ticket's serial is
+used. Built on `feat/case-report-edits` in both repos, PR #8 each, **not yet merged**:
+- `PUT /mk/rows/{sourceItemId}` replaces every printed cell of one row in the stored draft; Days and SLA are
+  recomputed from Open Date + Province unless typed; a held case stays held. Refused once sent.
+- `POST /mk/rows` adds a row the board lacks (`manual-…` id); `DELETE /mk/rows/{id}` removes one — only
+  those, since a board row would be back on the next regeneration.
+- **Edited and added rows survive `?refresh=true`**; the rest are rebuilt from the board. A past day's draft
+  can be edited but not regenerated, and now says so.
+- Branch code falls back to the Unit column / item name (recovers all five blanks); rows sorted oldest first.
+- Console: pencil per row → dialog with every cell incl. Province; "Add row"; "Remove row" on added rows;
+  "Regenerate from monday"; edited/added badges and counts; the Reports page is now full width (the 64rem
+  cap was clipping the table's last two columns).
+
+Also today: the console `main` was fast-forwarded (coworker merged PR #4 = the pending-case page, #6/#7 =
+PM planner), and the earlier vault note saying the page was unmerged was corrected.
+
+### Files Modified
+- [[CaseReportRow]] — `edited` flag, `MANUAL_PREFIX`, `isManual()` (`@JsonIgnore`), `withNo()`; Days doc → exclusive
+- [[CaseRowEdit]] (`casereport/dto/`) — new: the form's row, null days/sla = recompute, plus `province`
+- [[CaseReportRunService]] — `editRow`, `addRow`, `removeRow`, `requireDraft`, `build`, `keepEditedRows`; past-day refresh message
+- [[CaseReportController]] — `PUT`/`POST`/`DELETE /api/v1/case-reports/mk/rows…`
+- [[SlaCalculator]] — `daysOpen` = `DAYS.between`, no +1
+- [[MkPendingReportGenerator]] — `branchCode()` fallback (`text_mksgzhzr` Unit, item name), sort by open date
+- [[SlaCalculatorTest]] — pins re-based to exclusive; [[CaseReportRunServiceEditTest]] — new, 10 tests. **210 pass**
+- [[CasePendingPanel]], `components/CaseRowEditDialog.tsx` (new), [[api]], `types/api.ts`, [[ReportsClient]] (full width)
+
+### Decisions Made
+- **Correct on the report, not on monday.** Edits live in `case_report_run.rows_json`; monday is never written. `case_ticket_override` (V38) stays unused for now.
+- **Days exclusive** — matches the team's most recent file; documented as a choice that can be re-based.
+- **Manual rows are the answer to "the board is wrong about what is pending"** — not a Done-Check rule, which would have pulled in Y049 and M368 too.
+- **Board rows cannot be deleted from the report** — that is monday's job, or the deletion silently reverts.
+
+### Unresolved / Next Steps
+- [ ] **Merge backend PR #8 + console PR #8, then `deploy.sh`.** The next report reuses the run service, so merge first.
+- [ ] **Next report: Raw_Cleaning** (cleaning board, SLA 3 everywhere, no province), then Raw_Makro (same board, project filter), รอ QT, and RAW_AOTGA last. Verify on the board which project values split Cleaning vs Makro.
+- [ ] Ask the RE team: is M057 still pending (move it back to All Case)? What is "Open Date" on their sheet — approval date? Y084 serial: ticket `…6078` vs sheet `…4095`?
+- [ ] Board data error spotted: every ศรีราชา ticket carries Province **Samut Sakhon** (metro, 3 days); Sriracha is in **Chonburi** (5 days). Worth fixing on the board's dropdown.
+- [ ] PM "Sync from monday" hang (see index) — timeouts on [[MondayApiClient]] still to do.
+---
