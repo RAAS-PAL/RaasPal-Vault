@@ -3012,8 +3012,47 @@ PM planner), and the earlier vault note saying the page was unmerged was correct
 
 ### Unresolved / Next Steps
 - [x] **Backend PR #8 and console PR #8 merged 2026-09-13** (`ce89edd`, `77565ca`). Lightsail deploy of `ce89edd` pending — `bash deploy/deploy.sh`; Vercel picks up the console on its own.
-- [ ] **Next report: Raw_Cleaning** (cleaning board, SLA 3 everywhere, no province), then Raw_Makro (same board, project filter), รอ QT, and RAW_AOTGA last. Verify on the board which project values split Cleaning vs Makro.
+- [x] **Raw_Cleaning and Raw_Makro BUILT 2026-09-13** (PR #9, see session 2026-09-13b). Next: รอ QT รายการซ่อม, then RAW_AOTGA last.
 - [ ] Ask the RE team: is M057 still pending (move it back to All Case)? What is "Open Date" on their sheet — approval date? Y084 serial: ticket `…6078` vs sheet `…4095`?
 - [ ] Board data error spotted: every ศรีราชา ticket carries Province **Samut Sakhon** (metro, 3 days); Sriracha is in **Chonburi** (5 days). Worth fixing on the board's dropdown.
 - [ ] PM "Sync from monday" hang (see index) — timeouts on [[MondayApiClient]] still to do.
+---
+---
+## Session: 2026-09-13b — Cleaning and Makro pending-case sheets
+
+**Date:** 2026-09-13
+**Tags:** #session #backend #frontend
+
+### Summary
+Two more of the RE team's five sheets. Both come from the cleaning board's "All Case" group (54 open tickets
+on 2026-09-13), split the way the team splits it: **Makro** on its own sheet, the **airports** (สุวรรณภูมิ,
+ดอนเมือง, AOTGA, แม่ฟ้าหลวง) held back for the AOTGA sheet, and the rest as **Cleaning**. The three sets do not
+overlap — a reviewer cannot remove a board row from a report, so a Makro ticket on the Cleaning sheet would be
+there every morning. The user had guessed "all cleaning cases"; the workbook's partition was followed instead
+and the reason given. Customer is read from **Branch Name**, which is filled on every ticket where the Project
+tag is blank on 25 of 54. SLA 3 days everywhere, so the calculator never consults a province. Merged as PR #9
+in both repos (`3a33bd4`, `7d54ade`); Lightsail deploy pending.
+
+**Expected divergence from the team's sheet:** their 09-Sep Raw_Cleaning had 2 rows; ours will have ~25–30,
+because ~13 open cases are waiting on a customer's quotation (their รอ QT sheet) and ~17 have Sup Status
+"Done" (RE visited, paperwork pending). Whether those are "pending" is the RE team's call → a status filter.
+
+### Files Modified
+- [[CleaningPendingReportGenerator]] (`casereport/service/`) — new; `Scope { CLEANING, MAKRO }`; cleaning column map (`asset_owner3__1`, `text6`, `status_17`, `text0`, `text`, `long_text`, `date8`, `date_1`, `status`, `status7`); Makro/airport keyword lists
+- [[SolutionLineWriter]], [[MondayCells]] (`casereport/service/`) — extracted from [[MkPendingReportGenerator]] so both boards share the Solution rule and lenient date parse
+- [[CaseReportDefinition]] — `CLEANING_PENDING`, `MAKRO_PENDING`; [[CaseReportDefinitionSeeder]] seeds per code (only creates)
+- [[CaseReportRunService]] — `generate()` dispatches by code; [[CaseReportDailyScheduler]] freezes all three
+- [[CaseReportController]] — routes take the slug `{report:mk|cleaning|makro}`; MK paths unchanged
+- [[CleaningPendingReportGeneratorTest]] — 5 tests. **215 pass**
+- [[CasePendingPanel]] — takes a `CaseReportSpec` (slug, board id, Project/Branch columns, hint, new-row defaults); `CASE_REPORTS`; [[CaseRowEditDialog]] `newRow` defaults; [[api]] `caseReportApi.rows/editRow/addRow/removeRow(report, …)`; [[ReportsClient]] + `page.tsx` tabs `case-cleaning`, `case-makro`; en/th labels
+
+### Decisions Made
+- **Partition the cleaning board by customer, as the workbook does** — not "all cases", because board rows cannot be removed from a report.
+- **Airports excluded from Cleaning now**, ahead of the AOTGA sheet, so they do not have to be un-shown later.
+- **Cleaning keeps waiting-for-quotation and Sup-Status-Done cases** until the team says otherwise; the comparison will show the gap.
+
+### Unresolved / Next Steps
+- [ ] `deploy.sh` on Lightsail; expect `Seeded the CLEANING_PENDING report definition` and `MAKRO_PENDING` in the log.
+- [ ] Compare Cleaning and Makro against the team's latest sheets; decide the status filter (รอลูกค้าพิจารณาใบเสนอราคา → รอ QT sheet; Sup Status Done → pending or not?).
+- [ ] Next sheets: รอ QT รายการซ่อม (cross-board, waiting-for-quotation), then RAW_AOTGA (no SLA; part columns from comments).
 ---
