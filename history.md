@@ -3086,3 +3086,37 @@ console PR #10 (`771b5cb`); Vercel deploys it, no backend change.
 - [ ] Click through each guarded button on ops.raaspal.com once Vercel has deployed `771b5cb`.
 - [ ] Optional: clear the 8 pre-existing eslint errors (`useEffect(() => setVisibleCount(PAGE_SIZE), [query])` pattern ×5, `useMemo(fn, [])` ×2) in a tidy-up PR.
 ---
+---
+## Session: 2026-09-13d — Borderless layout; Solutions hub; honest top-bar search
+
+**Date:** 2026-09-13
+**Tags:** #session #frontend
+
+### Summary
+Three console-only changes, merged as PR #12 then PR #11 (`main` = `b4b1b4d`), Vercel deploys.
+**Borderless layout** — every card, the sidebar's right edge, the top bar's bottom edge, section dividers and
+chips were drawn with the one token `border-[var(--app-border)]` (85 card sites alone). One unlayered rule in
+`globals.css` makes that token transparent on layout elements and gives `rounded-xl|2xl` cards a soft lift
+instead; inputs, buttons, table internals, coloured alert boxes and the dashed add-tile keep their edges.
+**Solutions hub** — Generate Solution, Solutions and Proposals were three sidebar entries for one sequential
+job; now one `Solutions` entry opening `/solutions?tab=generate|solutions|proposals` (Reports' pattern).
+`/generate-solution` and `/proposals` redirect to their tab; the generation steps and `/proposals/[id]` keep
+their routes and light the entry up via `alsoMatches`. **Top-bar search** — on nine pages it was a painted box
+with placeholder text that did nothing; [[AppTopBar]] now draws it only where a page wires `onSearchChange`.
+
+### Files Modified
+- `app/globals.css` — the edgeless rule (light + dark shadows)
+- `app/[locale]/solutions/SolutionsHubClient.tsx` (new), `page.tsx` (reads `?tab`), [[SolutionsClient]] → `SolutionsList({searchQuery})`
+- `components/solutions/GenerateSolutionHub.tsx` (new, from the old page); `app/[locale]/generate-solution/page.tsx` and `proposals/page.tsx` → locale-aware `redirect`
+- [[ProposalsClient]] → `ProposalsList({searchQuery})`; `ProposalViewClient` back link; [[RecentSolutions]], `Header.tsx` links
+- [[AppSidebar]] — one entry with `alsoMatches`; [[AppTopBar]] — no fake search; `messages/*.json` `solutionsHub`
+
+### Decisions Made
+- **CSS rule over 85 edits** — one place to tune or revert; explicitly unlayered so it beats the utility.
+- **Keep field/table edges** — an input without an edge is not findable; row dividers are reading aids, not frames.
+- **No fake search** — a search box that does nothing is worse than none. A real global search is a separate feature if wanted.
+
+### Unresolved / Next Steps
+- [ ] Eyeball ops.raaspal.com after the Vercel deploy: light + dark, sidebar highlight inside a generation step, redirects.
+- [ ] Optional: a real global search (customer / robot / proposal) in the top bar.
+---
