@@ -3120,3 +3120,53 @@ with placeholder text that did nothing; [[AppTopBar]] now draws it only where a 
 - [ ] Eyeball ops.raaspal.com after the Vercel deploy: light + dark, sidebar highlight inside a generation step, redirects.
 - [ ] Optional: a real global search (customer / robot / proposal) in the top bar.
 ---
+---
+## Session: 2026-09-14 — Robot catalogue import, photos, scroll pagination, and the N+1 behind the slow page
+
+**Date:** 2026-09-14
+**Tags:** #session #database #backend #frontend
+
+### Summary
+**The catalogue.** `D:\Work\Robots\Robot(All) Comparision.xlsx` was decoded (no Excel tooling — unzip + XML) and
+turned into three SQL scripts in `D:\Work\Robots\import\`, each dry-run against production inside a rolled-back
+transaction. The user asked to delete the existing rows first; **that was refused with a reason**: 73 deployed
+robot_units point at Omnie alone, 119 in total, plus 37 recommendation_items on KEENON C40 / AGIBOT C5, so a
+DELETE would either fail on the FK or orphan the fleet. Existing rows are **renamed** to the sheet's spelling
+instead (ids kept, links intact) and everything else upserted by (brand, model).
+- `robots-import.sql` → 69 robots (38 cleaning, 25 delivery, 3 equipment, 3 mowing) + `robot_display_specs`
+  (every sheet attribute verbatim) + the numeric columns of `robot_specs`. Robots went 19 → 70.
+- `robots-matrix.sql` → `robot_specs_cleaning`, the table Spec matrix reads: restores Omnie Disc Brush's 81
+  datasheet values (lost with the duplicate row) and fills 44 parsed columns for all 38 cleaning robots,
+  `COALESCE(existing, new)` so the older datasheet import wins. Matrix went 10 → 38 models.
+- `robots-photos.sql` + 69 WebP files → every robot's photo. The workbook's images are anchored per model
+  column, so the mapping needed no name matching; 33.2 MB of PNG became 1.7 MB at 900px.
+
+**The slow page.** After the import the catalogue took ~20 s. Cause found by measurement, not guesswork:
+`RobotService.getAll` called `findByRobot_Id` per row — 70 sequential queries — and **one round trip to the
+Supabase pooler measures 309 ms** (the project is in `ap-southeast-2`, Sydney, while Lightsail is in
+Singapore). 70 × ~280 ms ≈ the 20 s. One batched query for the same data: 969 ms. Fixed in backend PR #10.
+
+**Scroll pagination.** Page numbers replaced by reveal-on-scroll everywhere (7 lists). The first version
+cascaded — the sentinel fired on every intersection report, so the whole list unrolled at once; now one batch
+per scroll with a latch, 120px margin, batch of 20. The catalogue and matrix queries also stop re-fetching on
+window focus (15-minute staleTime), which is what made the wait happen twice.
+
+### Files Modified
+- `RobotSpecRepository.findByRobot_IdIn`, `RobotService.getAll` — one query for a page's specs
+- `components/ui/infinite-scroll.tsx` (new), [[RobotsClient]], [[RobotsPanel]], [[CustomersPanel]], [[CmReportHistoryPanel]], [[CustomerEmailPanel]], [[ReportPreviewPanel]], [[CustomerBundlePanel]], [[RobotSpecMatrix]]
+- `public/robot-photos/` — 69 files; `app/[locale]/solutions/tabs.ts` (the user's fix, see Decisions)
+- Scripts kept in the scratchpad: `robots-sql.js`, `robots-matrix-sql.js`, `photos-map.js`, `photos-export.js`, `dbq/q.js`
+
+### Decisions Made
+- **Rename, never delete, a catalogue row with fleet or recommendation links.** The import is idempotent and keeps ids.
+- **Photos in the console's `public/`, not the backend.** An `<img src>` carries no Authorization header, so a backend-served image needs a token proxy (as RIMS has); these are static product photos.
+- **Server-side paging not added.** With the N+1 gone the whole catalogue is ~1 s; fetching 20 rows at a time would also move search to the backend. Revisit only if measurement says so.
+- **Database region left in Sydney for now.** Supabase cannot move a project; it means a new project + dump/restore (61 MB, no Auth users, no Storage objects, no RLS — so it is only a `pg_dump --schema=public`). Deferred until the N+1 fix is deployed and measured.
+
+### Unresolved / Next Steps
+- [ ] ⚠️ **`deploy.sh` on Lightsail** — carries three merged backend PRs: editable case-report rows (#8), Cleaning/Makro sheets (#9), catalogue N+1 (#10). Expect `Seeded the CLEANING_PENDING…` / `MAKRO_PENDING` on that start.
+- [ ] Run the three SQL files in order: `robots-import.sql`, `robots-matrix.sql`, `robots-photos.sql` (Supabase SQL editor; the "destructive operations" and "table without RLS" warnings are the guarded 2-row delete and the `ON COMMIT DROP` temp table — Run without RLS).
+- [ ] Baseline for any future move: Flyway 38 rows at v39, robots 70, robot_units 165, robot_task_reports 80,148, users 9, customer_profiles 67, case_ticket 71, pm_visit 4,352, robot_inventory_temp 92, cm_reports 7.
+- [ ] `robot_display_specs` (69 rows) is written but no screen reads it. Delivery/equipment/mowing have no matrix — their own vocabulary (tray load, layers, cutting width) rather than cleaning's 101 columns.
+- [ ] Two robots share one photo where the sheet anchored one image across two columns (Aventurier SE/Pro, LUBA 3000/5000).
+---
