@@ -13,8 +13,8 @@
 
 | Folder | Was called | Stack | HEAD @ 2026-09-17 |
 |---|---|---|---|
-| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `b7155d8` on `main` |
-| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `254603c` on `main` |
+| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `bf69c62` on `main` |
+| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `ae4511c` on `main` |
 | `RaasPal-RIMS` | `raaspal-rims` | Next.js 16 · inventory console | not checked this session |
 
 Also in the workspace, not code: `Info/` (source workbooks + PDFs), `Plan/`, `Report/`
@@ -40,9 +40,9 @@ empty state.
 
 ## Database
 
-- Highest migration on `main` is **V50** (`V50__add_contract_documents.sql`). **Production is at V50**
-  (verified 2026-09-17 — Lightsail deploy of `c9c0375`, then `b7155d8`).
-- **Lightsail runs `b7155d8` = `main`** (verified 2026-09-17). Deploy: ssh in, `git pull`, `cd deploy;
+- Highest migration on `main` is **V51** (`V51__add_contract_renewal_followup.sql`). **Production is at V51**
+  (verified 2026-09-17 10:33 UTC — Lightsail deploy of `bf69c62`).
+- **Lightsail runs `bf69c62` = `main`** (verified 2026-09-17 10:33 UTC). Deploy: ssh in, `git pull`, `cd deploy;
   bash deploy.sh`; health at `https://api.raaspal.com/actuator/health`. `ops.raaspal.com` (Vercel)
   deploys itself on push to `main`; its proxy needs `BACKEND_PROXY_TARGET=https://api.raaspal.com`.
 - ⚠️ **Local dev and production share one Supabase database.** Booting locally applies pending
@@ -99,7 +99,7 @@ Four monday boards, ids in `application.properties` under `app.pm.monday.*`:
 - [ ] Orphan object in S3 `raaspal-customer-contracts` from the failed first attach — user deletes.
 - [ ] ⚠️ AWS account is on the Free Plan — $107.76 credits, ends 2027-02-06 or when spent; production
       and the contract PDFs live in it. Director.
-- [ ] `raaspal-api-preview` still up on `0.0.0.0:8081`.
+- [ ] `raaspal-api-preview` still up on `0.0.0.0:8081` — and **unhealthy** since ~2026-09-16. Stop it.
 
 ## Working rules that have cost time when ignored
 

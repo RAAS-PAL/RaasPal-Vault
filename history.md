@@ -4327,3 +4327,54 @@ staff-fill-in, rough site count, tab-in-No-data vs sidebar entry.
 - [ ] The AWS Free Plan cliff — director.
 - [ ] `raaspal-api-preview` on `0.0.0.0:8081` — still up.
 ---
+
+---
+## Session: 2026-09-17d — CS renewal follow-up on each contract row (V51)
+
+**Date:** 2026-09-17
+**Tags:** #session #backend #frontend #database #deployment
+
+### Summary
+The CS team calls customers whose contracts are ending and needed somewhere to record it. Each Contracts
+row now carries a **renewal follow-up**: `NOT_CONTACTED` (the unset state) → `CONTACTED` → `WILL_RENEW` /
+`WILL_NOT_RENEW`, with a note and who/when. Stored **on the deployment** (V51: `renewal_status`,
+`renewal_note`, `renewal_updated_by`, `renewal_updated_at`) next to `contract_expiry_alerted_at`, because
+it is about the same thing — the current term — and resets the same way: [[RobotUnitService]] clears both
+when the end date changes, so a renewal recorded in Tools → Robots puts the row back to *Not contacted* for
+its next term. One customer, one contract, one call: [[ContractRenewalFollowupService]]`.update(robotUnitId,
+status, note, applyToSameContract, by)` writes the same status to every other active deployment of the
+customer on the same dates, via the two typed same-contract queries the PDF attach uses. `PUT
+/api/v1/robot-units/{id}/contract-followup` on [[RobotUnitController]], ADMIN/RAASPAL_TEAM.
+[[ContractExpiryResponse]]`.Contract` gained `followup` ([[ContractRenewalFollowup]], never null). The
+morning expiry email ([[OpsAlertEmailService]]) gained a Follow-up column and links to Tools → Contracts;
+its `table()` helper became varargs.
+
+Console [[ContractsPanel]]: *Follow-up* column (dot badge grey/blue/green/red, note clamped to two lines,
+"name · date"), pencil → `FollowupDialog` (four radio statuses with hints, note, pre-ticked "also record on
+the N other robots on the same contract dates"), a *Follow-up* select with counts beside *Ending within*,
+summary line "N ending within 30 days (M not contacted yet)". The *Alert* column folded into the Status cell
+as a faint "alert sent / alert pending" line.
+
+Backend `bf69c62` deployed 10:33 UTC — **V51 applied**, healthy. Frontend `ae4511c` on Vercel.
+
+### Files Modified
+- Backend: V51; [[Deployment]] (`renewal*`, `clearRenewalFollowup()`); [[ContractRenewalStatus]];
+  [[ContractRenewalFollowup]]; `UpdateRenewalFollowupRequest`; [[ContractRenewalFollowupService]];
+  [[ContractExpiryResponse]]; [[ContractExpiryService]]; [[RobotUnitService]]; [[RobotUnitController]];
+  [[OpsAlertEmailService]]; `ContractRenewalFollowupServiceTest` (6).
+- Frontend: [[ContractsPanel]] (`FOLLOWUP`, `FollowupBadge`, `FollowupDialog`, `FollowupCell`, filter);
+  `lib/api.ts` (`contractsApi.updateFollowup`); `types/api.ts` (`ContractRenewalStatus`,
+  `ContractRenewalFollowup`, `UpdateRenewalFollowupRequest`, `followup` on `ExpiringContract`).
+
+### Decisions Made
+- **Columns on `deployments`, not a table** — one follow-up per term, same lifecycle as the alert flag; the
+  zero-data follow-up is a table only because it is per month.
+- **Reset on end-date change** — the renewal itself is the new end date; the next term is chased afresh.
+- **Four statuses, single field** — the user asked for "contacted or not"; will/won't renew is the answer
+  the call produces. Open to change after the CS team uses it.
+
+### Unresolved / Next Steps
+- [ ] CS team feedback on the four statuses (e.g. "undecided", "quote sent").
+- [ ] `raaspal-api-preview` container is **unhealthy**, 28 h — stop it.
+- [ ] No-data site map — still parked (2026-09-17c).
+---

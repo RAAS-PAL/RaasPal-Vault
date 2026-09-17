@@ -43,8 +43,8 @@ An internal RAASPAL platform where the team uploads a customer survey form, AI e
 
 | Repo | HEAD | Tree | Deployed |
 |---|---|---|---|
-| [[RaasPal-Internal-Ops-backend]] | `b7155d8` on `main` — all-contracts endpoint + same-contract query fix (2026-09-17c); `c9c0375` contract PDFs in S3 (V50, 17b); `7f978c0` PM company filter (17); PR #3 RE KPI dashboard (V45–V49) | clean | ✅ **Lightsail runs `b7155d8`** — deployed 2026-09-17, `(healthy)`, `UP`, schema at **50**, S3 store initialised against `raaspal-customer-contracts` |
-| [[RaasPal-Ops-frontend]] | `254603c` on `main` — Contracts All view, View PDF, in-page viewer (2026-09-17c); `9011d22` month labels (17b) — **PR #3 merged 2026-09-17 04:36Z** (`e070683`). Before it: PRs #13–#16 2026-09-14 (scroll pagination + one-batch fix, 69 robot photos, Solutions tab-ids fix); #11/#12 Solutions hub, borderless layout, no fake search; #10 confirmation dialogs; #9 Cleaning + Makro tabs; #8 row editing/adding, Regenerate, full-width Reports page; #4 the pending-case page, #6/#7 the PM planner | clean, verified 2026-09-17 | ✅ **live at `ops.raaspal.com`** (Vercel). Its `/api/v1/*` proxy route needs `BACKEND_PROXY_TARGET=https://api.raaspal.com` in the Vercel env — it was missing on 2026-09-11 and every login 502'd with "Proxy could not reach http://localhost:8080" until set |
+| [[RaasPal-Internal-Ops-backend]] | `bf69c62` on `main` — CS renewal follow-up (V51, 2026-09-17d); `b7155d8` all-contracts endpoint (17c); `c9c0375` contract PDFs in S3 (V50, 17b); `7f978c0` PM company filter (17) | clean | ✅ **Lightsail runs `bf69c62`** — deployed 2026-09-17 10:33 UTC, `(healthy)`, `UP`, schema at **51**, S3 store initialised against `raaspal-customer-contracts` |
+| [[RaasPal-Ops-frontend]] | `ae4511c` on `main` — Follow-up column on Contracts (2026-09-17d); `254603c` All view, View PDF, in-page viewer (17c); `9011d22` month labels (17b) — **PR #3 merged 2026-09-17 04:36Z** (`e070683`). Before it: PRs #13–#16 2026-09-14 (scroll pagination + one-batch fix, 69 robot photos, Solutions tab-ids fix); #11/#12 Solutions hub, borderless layout, no fake search; #10 confirmation dialogs; #9 Cleaning + Makro tabs; #8 row editing/adding, Regenerate, full-width Reports page; #4 the pending-case page, #6/#7 the PM planner | clean, verified 2026-09-17 | ✅ **live at `ops.raaspal.com`** (Vercel). Its `/api/v1/*` proxy route needs `BACKEND_PROXY_TARGET=https://api.raaspal.com` in the Vercel env — it was missing on 2026-09-11 and every login 502'd with "Proxy could not reach http://localhost:8080" until set |
 | [[RaasPal-RIMS]] | `44ed937` store-room statuses + packaging (2026-08-31) | not checked 2026-09-17 | ❓ Vercel state not verified |
 
 > **On the PR numbers.** PR #3 is numbered lower than the #8–#16 that merged before it because
@@ -138,6 +138,10 @@ in the standalone `robot_inventory_temp` table ([[V30__add_robot_inventory_temp]
 - **Pending:** its own `CLAUDE.md`; three uncommitted files predating the move.
 
 ⚠️ **URL-length cliff (2026-09-17):** nginx request-line buffer 8 KB, Tomcat header limit now 16 KB. The PM company filter sends the shorter of `company=`/`excludeCompany=` for this reason; any new list-valued GET param must be designed with the same ceiling in mind.
+
+### Contract renewal follow-up ✅ 2026-09-17d
+
+CS status per contract row — `NOT_CONTACTED` / `CONTACTED` / `WILL_RENEW` / `WILL_NOT_RENEW` + note + who/when — as `renewal_*` columns on `deployments` (V51). Belongs to the current term: cleared with `contract_expiry_alerted_at` when the end date changes. One call covers every robot on the same contract (`applyToSameContract`). `PUT /api/v1/robot-units/{id}/contract-followup`; [[ContractRenewalFollowupService]]. The expiry email carries it as a column.
 
 ### Contract documents (S3) ✅ 2026-09-17b
 
