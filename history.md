@@ -3170,3 +3170,921 @@ window focus (15-minute staleTime), which is what made the wait happen twice.
 - [ ] `robot_display_specs` (69 rows) is written but no screen reads it. Delivery/equipment/mowing have no matrix — their own vocabulary (tray load, layers, cutting width) rather than cleaning's 101 columns.
 - [ ] Two robots share one photo where the sheet anchored one image across two columns (Aventurier SE/Pro, LUBA 3000/5000).
 ---
+---
+## Session: 2026-09-14b — Frozen PM header, brand tabs, email to Tools, uniform robot photos
+
+**Date:** 2026-09-14
+**Tags:** #session #frontend #deployment
+
+### Summary
+Console PRs #17 (brand sub-sections, email panel to Tools, square catalogue cards) and #18 merged and deployed via Vercel. The PM year grid's "frozen" header turned out to be three separate defects, any one of which kept it from holding: the grid was a `max-height: 75vh` island inside a scrolling page, so the page carried the whole box out of view before the box had anything to scroll (fixed with a viewport-height shell for the year view only — the month view keeps page scrolling, print reverts it); the week-number cells had no background and both frozen rows used the translucent [[columnTint]] *as* their background, which is `''` on even months (fixed with an opaque base and the tint on an inset overlay); and `border-collapse: collapse` borders belong to the table, not the cell, so they do not move with a sticky cell and left a see-through hairline along every row boundary (fixed with `border-separate border-spacing-0`). Robot photos were re-exported so each machine reads as the same size: a square tile fitted each subject to its long side, so wide and tall robots looked different; normalising by *area* on a square tile clamped 13 of 69 subjects; the fleet's trimmed shapes have a geometric mean of 0.77, so a 3:4 tile at 38% area clamps one, to 37.4%. AGIBOT C5 was not in the workbook and pointed at Cloudinary — folded in through the same pipeline, 70 uniform tiles. Sidebar made sticky.
+
+### Files Modified
+- [[PmYearGrid]] (`components/pm/PmYearGrid.tsx`) — opaque sticky week/LOAD cells with tint overlay; `border-separate`; flex-fill scroll box
+- [[PmPlanningClient]] (`app/[locale]/pm-planning/PmPlanningClient.tsx`) — viewport-height shell when `view === 'year'`
+- [[RobotsClient]] (`app/[locale]/robots/RobotsClient.tsx`) — card image tile `aspect-[3/4]` to match the tiles
+- [[AppSidebar]] (`components/AppSidebar.tsx`) — `sticky top-0 h-dvh overflow-y-auto`
+- `public/robot-photos/*.webp` — 70 tiles, 720×960, robot at 37.4–38.1% of tile area; `agibot-c5.webp` new
+- `D:\Work\Robots\import\robots-photos.sql` — regenerated, 70 rows (now includes AGIBOT C5)
+
+### Decisions Made
+- **Year-view-only fixed shell:** the wrapper also hosts [[PmMonthView]], an ordinary document that wants page scrolling, so the fixed-height shell is conditional rather than global.
+- **Tint as overlay, not background:** [[columnTint]] must stay translucent for body cells (it composites over row hover) — so sticky cells get their own opaque base and the tint goes on an `absolute inset-0` layer. Recorded in the helper's doc comment.
+- **`border-separate` over `border-collapse`:** all borders in the grid were already one-sided, so the look is unchanged except month-boundary lines in body rows (2px → 3px, the prior cell's `border-r` no longer merges into `border-l-2`). [[RobotSpecMatrix]] still uses `border-collapse` with sticky headers and has the same latent hairline.
+- **3:4 tile at 38% area, 92% side cap:** chosen by search over the measured shape distribution (`tile-fit.js`), not by eye. Filenames unchanged, so the DB rows are unaffected; only AGIBOT's URL changes.
+- **Merged only after Vercel's preview build passed:** `npm run build` was skipped locally because the dev server was live (it strands the Turbopack cache), so the preview deployment stood in as the production-build check.
+
+### Unresolved / Next Steps
+- [ ] Run `robots-photos.sql` (70 rows) after `robots-import.sql` — it is the one that points AGIBOT C5 at the local tile.
+- [ ] [[RobotSpecMatrix]] has the same `border-collapse` + sticky hairline; switch it when it is next touched.
+- [ ] Month-boundary lines in PM body rows are 3px vs 2px in the header; fold `border-r` into a single left border per cell if it shows.
+---
+---
+## Session: 2026-09-14c — Profile page, role gating for customer sends, Excel export of pending sheets
+
+**Date:** 2026-09-14
+**Tags:** #session #frontend #backend #deployment
+
+### Summary
+Four PRs merged. The user menu's Profile entry now opens `/profile` (console #19): read-only account details and a change-password form against the existing `POST /auth/change-password`, with the client mirroring the backend's three rules before the round trip and showing the server's own wording on refusal. Role readouts corrected on the way — the frontend type claimed `'ADMIN' | 'SPECIALIST'`, the menu's Access role line was a hard-coded `RAASPAL_TEAM`. On roles: [[RAASPAL_TEAM]] already had every console feature (no frontend gating; backend gates only user management, inventory writes and PM planning, which includes the team), but a warehouse [[INVENTORY_STAFF]] login's JWT was enough to start the monthly delivery run. Backend #11 gates the four customer-mailing POSTs by URL in [[SecurityConfig]] to `ADMIN`/`RAASPAL_TEAM` — URL rule rather than `@PreAuthorize` because method security runs after param/body resolution, so a denial and a missing param are indistinguishable without actually sending; the filter-level rule is the testable one. That test exposed the [[GlobalExceptionHandler]] catch-all turning missing-param/body requests into 500s (third such trap in that file); now 400s. Backend #12 + console #20 add Excel export of the pending sheets (`GET /case-reports/{report}/export`), built by [[CaseReportExcelWriter]] from the same frozen draft the screen shows, matching the hand-made workbook's layout, with the SN cell one serial per line — the same fix applied to the table, where multi-serial cleaning cases stretched the column.
+
+### Files Modified
+- [[ProfileClient]] (`app/[locale]/profile/ProfileClient.tsx`), `page.tsx` — new page
+- [[UserMenu]] (`components/UserMenu.tsx`) — Profile → `/profile`; Access role shows the real role
+- `types/api.ts`, `lib/api.ts` — `UserRole` union, `ChangePasswordRequest`, `authApi.changePassword`, `caseReportApi.exportExcel`
+- `messages/en.json`, `messages/th.json` — `profile` namespace
+- [[CasePendingPanel]] (`components/CasePendingPanel.tsx`) — Export Excel button; `serialLines` SN wrap
+- [[SecurityConfig]] — four send endpoints `hasAnyRole("ADMIN","RAASPAL_TEAM")`
+- [[GlobalExceptionHandler]] — `ServletRequestBindingException`, `HttpMessageNotReadableException`, `MethodArgumentTypeMismatchException` → 400
+- [[ReportSendSecurityTest]] (new, 6) — pins the gate
+- [[CaseReportExcelWriter]] (new), [[CaseReportRunService]] (`export()`), [[CaseReportController]] (`GET /{report}/export`)
+- [[CaseReportExcelWriterTest]] (new, 8) — reads the workbook back with POI
+
+### Decisions Made
+- **No confirm dialog on password change:** the current-password field is the confirmation.
+- **Send gate by URL, not `@PreAuthorize`:** testable with no side effects (403 before MVC for denied roles, 400 for missing params after it for allowed ones). Delivery reads stay open to any staff login.
+- **Backend owns the sheet layout:** which site columns appear per report is decided in the writer, mirroring the frontend's `CASE_REPORTS`, since the backend owns the generators with the same scope distinctions.
+- **Download via axios, not a link:** the bearer token only travels via the interceptor.
+- **Scope held to what was asked on INVENTORY_STAFF:** only sending is gated. The role's doc comment says it should have no access to proposal/recommendation/partner surfaces either, and that is still not enforced.
+
+### Unresolved / Next Steps
+- [ ] ⚠️ **Lightsail `./deploy.sh`** — backend `main` is `9aa5fb0`; carries #11 (send gate) and #12 (export). Until then Export Excel gets a 404 and the send gate is not in force.
+- [ ] `INVENTORY_STAFF` can still read the console's proposal/recommendation/partner data through the API; the Role enum says it should not. Decide whether to gate those surfaces too.
+- [ ] Settings in the user menu still has no page.
+- [ ] Export not yet downloaded from a running backend — writer verified by reading its own output back; endpoint mirrors the pptx one.
+---
+---
+## Session: 2026-09-14d — Navy + Blue restyle; delivery history knows its kind; sample preview removed
+
+**Date:** 2026-09-14
+**Tags:** #session #frontend #backend #database #deployment
+
+### Summary
+Three PRs merged. The console moved to the Navy + Blue direction (console #21): cool white ground, white cards, slate borders, one blue `#2563EB` for primary actions and the selected nav item, navy `#16213C` for the sidebar and dark banners. The palette was a token swap in [[globals.css]]; the bulk of the work was stripping the decorative layer — 15 brand gradients, the teal→blue "aurora" heroes, 11 orb/radial elements with their keyframes, and 23 brand-glow shadows, whose token was removed. The user had already moved [[AppSidebar]], [[AppTopBar]] and [[UserMenu]] onto an `--app-nav-*` token set that was never defined; those tokens were kept and defined rather than rewritten. Delivery history (backend #13, console #22): `report_sends` only ever recorded bundle deliveries, so the Report preview tab's single-robot send was invisible and the monthly run would re-send that customer the bundle. V40 adds `kind` (BUNDLE default / ROBOT_REPORT) and `robot_serial`; the preview send goes through [[ReportDeliveryService]]`.sendRobotReport()` — still the one writer — and the run's already-sent check is keyed on BUNDLE, so a hand-sent robot report is visible but never counts as the month's delivery. Two frontend consumers that would have gone quietly wrong were fixed: dashboard coverage now counts bundles only, and Resend (which sends the bundle) is hidden on robot-report rows. The "Preview with sample data" path was removed from [[ReportPreviewPanel]] entirely.
+
+### Files Modified
+- [[globals.css]] — Navy + Blue tokens (light + dark), `--app-nav-*` defined, aurora/orb block and `--app-brand-glow` removed
+- 15 tsx files — mechanical flat-fill / no-glow pass (`retheme.js` in scratchpad); [[AppSidebar]], [[AppTopBar]], [[UserMenu]] (user's edits kept)
+- `V40__report_send_kind.sql` — `kind`, `robot_serial`, index; dry-run on live DB, 94 rows → BUNDLE
+- [[ReportSend]] (`Kind` enum), [[ReportSendRepository]] (kind-keyed idempotency lookup), [[ReportSendResponse]], [[ReportDeliveryService]] (`sendRobotReport`, `record()` takes kind), [[ReportEmailController]] (routes through the delivery service)
+- [[RobotReportHistoryTest]] (new, 6; email + telemetry mocked)
+- `types/api.ts` (`ReportSendKind`), [[MonthlyDeliveryCard]] (coverage = bundles only), [[ReportAutomationPanel]] (kind badge; Resend on bundles only), [[ReportPreviewPanel]] (sample path removed)
+
+### Decisions Made
+- **Robot report never satisfies the monthly run:** the bundle is the promised deliverable; one machine's report by hand is ad hoc. Visible, not a substitute.
+- **Announcements stay out of Delivery history:** they are not reports; a full "everything emailed to this customer" view belongs on the customer page.
+- **Resend hidden on robot-report rows:** it sends the bundle, so on a failed robot report it would send the wrong thing.
+- **Restyle kept the user's `--app-nav-*` naming** rather than introducing a parallel sidebar token set.
+- **Header.tsx left on the old teal glow:** not rendered anywhere.
+
+### Unresolved / Next Steps
+- [ ] ⚠️ **Lightsail `./deploy.sh`** — backend `main` is `1d0ee35`; V40 runs on startup.
+- [ ] Pre-existing eslint errors (setState-in-effect, non-inline hook args) in `ProposalClient`, `RecommendationClient`, `ReportPreviewPanel` — same on `main`, untouched.
+- [ ] `INVENTORY_STAFF` can still read console data through the API; Settings menu entry has no page (carried over).
+- [ ] Dark mode of the restyle reviewed by token values only, not on screen.
+---
+
+---
+## Session: 2026-09-14 — RAW_AOTGA sheet built; PUDU Open API mapped; solution box enlarged
+
+**Date:** 2026-09-14
+**Tags:** #session #backend #frontend #ai
+
+### Summary
+Three threads. **(1) The AOTGA pending-case sheet** is built on `feat/aotga-report` in both repos, not
+merged. It is a different kind of report from MK/Cleaning/Makro: RAW_AOTGA tracks *spare-part turnaround*
+(Required Part, Waiting, Waiting From, Part Received, Aging After Received) and prints no Solution, RE On
+Site or SLA. The vault's note that AOTGA "needs AI over comment threads" was **wrong** — the parts data is
+typed on the cleaning board (`dropdown_mknqq9fm` Spare Parts Name beside S/N Spare Part and QTY.), so there
+is no new AI service in this at all. The board's full column list was pulled via the monday API
+(columns only, no rows). Three columns were chosen by title and are isolated as constants in
+[[AotgaReportGenerator]]: Waiting ← `text_mm3j1dbd` อัพเดทปัจจุบัน, Waiting From ← `dropdown_mm1gmnst`
+อัพเดท, Part Received ← `date_mm3b365t` วันส่งอะไหล่ (which reads as *sent*, not *received* — verify).
+Rows come from the "All Case" group only (user confirmed; the board's "AOTGA" and "AOTGA 30 Credit cases"
+groups are deliberately not read). No migration: rows live in `case_report_run.rows_json`, and the five
+new nullable record components read as null on runs frozen before they existed.
+
+**Days rule.** The user's 09-Sep RAW_AOTGA screenshot counts *inclusively*; a script showed the same 16
+rows also fit *exclusive* counting with asOf one day later. [[history]] 2026-09-11b records the user's
+decision that Days became exclusive when the team's 11-Sep sheet switched — so the screenshot predates the
+rule. **AOTGA uses `daysOpen` unchanged, same as the other three sheets**; `Aging After Received` is the
+same count from `partReceived`. Expected consequence: every Days/Aging reads one lower than that
+screenshot. User: "if she wants to count, we change later" — it is one function.
+
+**(2) PUDU Open API** (for a delivery-robot performance report "like GS"): the docs site is a Next.js SPA
+readable through `open.pudutech.com/api/article?id=…&locale=en&format=json` and `/api/menus`. Cloud API
+auth is per-request HMAC-SHA1 (no token endpoint); the signed path includes `/pudu-entry`; query values
+are signed decoded. RAASPAL's portal is `css.pudutech.com` → overseas node
+`css-open-platform.pudutech.com`. A stdlib verifier (`pudu_healthcheck.py`, scratchpad) reached the live
+gateway and got `Invalid API key` for a dummy key, proving host, path and header format. **Blocked on the
+ApiAppSecret**: it is never shown in the portal — it is *emailed* to the application's mailbox on approval.
+Recommended shape: phase 1 signer + client + on-demand preview (AutoXing pattern), phase 2 persisted
+per-robot-per-day stats from `/data-board/v1/analysis/task/delivery/paging?group_by=robot&time_unit=day`
+(has `sn`; `limit` ≤ 20) — **not** `robot_task_reports`, which is cleaning-shaped and needs a task id PUDU
+does not provide. Full spec set saved to the scratchpad.
+
+**(3)** The Solution textarea in [[CaseRowEditDialog]] opens at 12 rows instead of 4 (vertical resize
+only). Built on `main` before the branch existed; carried onto `feat/aotga-report` with the rest.
+
+### Files Modified
+- [[AirportTickets]] (`casereport/service/AirportTickets.java`) — **new**; the airport keyword list in one
+  place with two entry points: `matches(project, branch)` for Cleaning's exclusion,
+  `matchesIncludingName(name, project, branch)` for AOTGA's inclusion. The asymmetry is deliberate and
+  documented: a name-only prefix lands on both sheets, not neither.
+- [[AotgaReportGenerator]] (`casereport/service/AotgaReportGenerator.java`) — **new**; own class, not a
+  third `Scope`, because the layout shares nothing. Site label normalised from the `AOTGA-XXX` prefix
+  wherever written (`AOTGA-:-DMK` → `AOTGA-DMK`), falling back to tag then branch. SLA computed at 3/3 for
+  the review table, unprinted.
+- [[CaseReportRow]] (`casereport/dto/CaseReportRow.java`) — five nullable components + `ofAotga(…)`.
+- [[CaseReportRunService]] — `build(…)` takes the previous row, not just its SLA, so editing an AOTGA row
+  keeps its parts fields (the form does not offer them yet); AOTGA dispatch.
+- [[CaseReportExcelWriter]] — `aotgaColumns()`: the 12-column RAW_AOTGA layout, no SLA tint.
+- [[CaseReportDefinition]], [[CaseReportDefinitionSeeder]], [[CaseReportController]] (`aotga` slug),
+  [[CaseReportDailyScheduler]] (frozen daily with the other three).
+- [[CleaningPendingReportGenerator]] — private airport list deleted; delegates. Byte-for-byte same rows.
+- Tests: `AirportTicketsTest` (9), `AotgaReportGeneratorTest` (10, incl. the both-sheets pin);
+  `CaseReportRunServiceEditTest` and `CaseReportExcelWriterTest` constructors updated. **255 pass.**
+- Console: [[CasePendingPanel]] gains `layout: 'sla' | 'parts'` and the parts columns; `TicketLink`
+  extracted; `aotga` in `CaseReportSlug`, `case-aotga` tab in [[ReportsClient]] + `page.tsx`,
+  `tabs.caseAotga` in `en.json`/`th.json`; five optional fields on the `CaseReportRow` type.
+  [[CaseRowEditDialog]] Solution `rows={12}`. `npm run build` clean.
+
+### Decisions Made
+- **AOTGA is a separate generator, not `Scope.AIRPORTS`:** the layouts share nothing; a change to one
+  must not be able to touch the other.
+- **Name-matching for AOTGA only, not Cleaning** (user's call): adding it to Cleaning's exclusion would
+  remove rows from a live morning report. Cost accepted: a name-only ticket appears on both sheets.
+- **Exclusive Days everywhere, incl. AOTGA:** consistency with the 11-Sep decision beats matching a
+  superseded screenshot.
+- **All Case group only** for AOTGA (user confirmed twice).
+- **No `TelemetryAdapter` for PUDU in phase 1**, and no reuse of `robot_task_reports` in phase 2.
+
+### Unresolved / Next Steps
+- [ ] **Verify the three title-chosen columns** on a real generation: run the `settings_str` query for
+  `dropdown_mm1gmnst` / `color_mm3qax6d` to pin Waiting From, and confirm whether วันส่งอะไหล่ is *sent* or
+  *received* — if sent, `Aging After Received` measures from the wrong end.
+- [ ] **Phase 3 — edit path:** `CaseRowEdit` + [[CaseRowEditDialog]] do not offer the parts fields; an
+  edit preserves them but cannot change them. The dialog also still shows Solution/RE On Site/SLA on an
+  AOTGA row.
+- [ ] Generate locally against the live board and compare with the RE team's RAW_AOTGA (expect Days one
+  lower than the 09-Sep sheet). Then PR both repos; nothing is committed yet.
+- [ ] `docs/kpi-local-testing.md` exists only on `origin/feat/re-kpi-dashboard` — the vault points at it
+  as if on `main`.
+- [ ] A `pudu` tab already exists in `REPORT_TABS` on the console's `main` — find out what put it there
+  before building the PUDU panel.
+- [ ] PUDU: obtain the ApiAppSecret (approval email to the application's mailbox, or PUDU APAC support),
+  run `pudu_healthcheck.py`, then phase 1.
+---
+
+---
+## Session: 2026-09-14b — AOTGA parts cells come from the comment thread, not the board
+
+**Date:** 2026-09-14
+**Tags:** #session #backend #ai #frontend
+
+### Summary
+Correction to the session above. After the first AOTGA generation on the live board, every part-tracking
+cell was blank on every row. A counts-only query (no ticket content) settled why: **56 All Case tickets,
+12 airport-matching, all 56 with a comment thread — and 0 of the 12 airport tickets had a value in any of
+the board's parts columns** (Spare Parts Name 3/56, วันส่งอะไหล่ 3/56, อัพเดท 0/56). The columns exist; the
+RE team does not use them. The original vault note — "AOTGA needs AI over comment threads" — was **right
+all along**; the earlier session overturned it on the strength of a column *existing* without checking
+whether it was *used*. Lesson recorded: count before building.
+
+Built the same three-layer arrangement Solution uses. [[CasePartsAiService]] (Claude + Mock impls; Claude
+reuses the Haiku constant and `callClaude` raw-HTTP helper, reply is one JSON object read leniently by
+[[CasePartsSummary]]`.parse`) → [[PartsLineWriter]] (a typed board value wins field by field, one model
+call per row only when something is still blank; the thread assembly is now `SolutionLineWriter.commentsOf`,
+shared so both prompts see the same comments) → [[AotgaReportGenerator]]. The Mock returns `EMPTY` so
+local-without-key shows dashes, not a heuristic that looks like an answer. Prompt in [[AiPromptTemplates]]
+`casePartsSystemPrompt`: four fields, `waiting_from` constrained to AOTGA / Supplier RAASPAL / RAASPAL,
+null for anything unsettled ("a wrong one sends a technician to the wrong shelf").
+
+### Files Modified
+- [[CasePartsAiService]] (`ai/service/`) — **new** interface.
+- [[CasePartsSummary]] (`casereport/dto/`) — **new** record + lenient `parse`. 6 tests.
+- [[PartsLineWriter]] (`casereport/service/`) — **new**.
+- [[ClaudeAiService]], [[MockAiService]] — implement it. [[AiPromptTemplates]] — the prompt.
+- [[SolutionLineWriter]] — `commentsOf(item)` extracted, behaviour unchanged.
+- [[AotgaReportGenerator]] — parts cells routed through the writer; class note corrected.
+- `AotgaReportGeneratorTest` — 14 tests (typed-wins / thread-fills / oldest-first-without-intake / EMPTY).
+  **265 pass.**
+- [[CasePendingPanel]] — AOTGA footer corrected (was "nothing is written by AI").
+
+### Decisions Made
+- **Typed board value still wins:** the columns are empty today, but the day the team fills them their
+  value should win without a deploy.
+- **One model call per row, only when needed:** four fields from one reply; skipped entirely when all four
+  are typed.
+- **Haiku, same as Solution:** the per-ticket-per-report cost decision was already the user's for this task.
+
+### Unresolved / Next Steps
+- [ ] Generate against the live board with the API key present and compare the four cells with the RE
+  team's RAW_AOTGA. Tune the prompt on what comes back, not before.
+- [ ] Phase 3 (edit dialog fields for the parts cells) still open.
+---
+
+---
+## Session: 2026-09-15 — PUDU delivery report, phase 1 (signed client + on-demand preview)
+
+**Date:** 2026-09-15
+**Tags:** #session #backend #frontend #config
+
+### Summary
+Built the PUDU Open Platform integration as an **on-demand preview only** — the AutoXing shape — on
+`main` in both repos (not yet committed at time of writing). New package
+`telemetry/adapters/pudu/`: [[PuduRequestSigner]] (per-request HMAC-SHA1; no token endpoint exists),
+[[PuduApiClient]] (health check + the delivery statistics list, paged at PUDU's cap of 20),
+[[PuduReportService]] (one robot by serial, ≤31 days, Bangkok day boundaries, previous period of equal
+length fetched the same way so the comparison is per robot), [[PuduDeliveryReport]] (same nested shape
+and **metre/second units** as `AutoxingDeliveryReport`, plus a `pudu` block: tables, trays, mean speed,
+previous period), [[PuduReportController]] (`GET /api/v1/pudu/report/preview?sn=&from=&to=&shopId=&customerName=`
+and `/status?check=`). Config `app.pudu.api.{base-url,app-key,app-secret}` ← `PUDU_API_*`; default host
+is the overseas node. Config-gated: without the secret the panel says so and disables the form.
+
+**The signer is triple-checked.** Golden signatures were generated from the session's Python port (which
+the live gateway had accepted structurally), the Java port reproduces all five byte for byte, and PUDU's
+own helpers in `github.com/pudu-robotics/skills` (found by the user; Python + Java) use the identical
+signing string, env-prefix strip, decoded GET query, and the same hand-written GMT date pattern. That repo
+also ships the cloud API as **OpenAPI JSON** (`skills/pudu-openapi-skill/assets/*.json`), which settled
+two things the HTML docs garbled: `group_by` is `robot | shop`, and the default `timezone_offset` is UTC+8
+(we always pass 7). Copies in the scratchpad.
+
+Console: the existing `pudu` brand tab was a deliberate `EmptyState` placeholder; it is now
+[[PuduReportPanel]] (serial + dates + optional store id / customer name, a "PUDU figures" strip with
+change vs previous period, then the shared report). `DeliveryReportView` now takes a brand-neutral
+`DeliveryReportData` — `AutoxingDeliveryReport` and `PuduDeliveryReport` both extend it — so one view
+serves both brands; AutoXing rendering unchanged. `npm run build` clean; backend **279 tests pass** (7
+signer + 7 service new).
+
+**Still blocked for live verification on the ApiAppSecret** — never shown in the portal, emailed on
+approval to the application's mailbox. A re-application form has the callback URL optional (leave blank).
+
+**Paused by the user at the end of this session** ("a little blocking case"). Committed and pushed to
+`feat/pudu-report` in both repos (backend `02d6887`, frontend `bdadb4a`), **not merged**; `main` is
+untouched. Two unrelated uncommitted edits by someone else (`app/[locale]/layout.tsx`,
+`app/[locale]/login/page.tsx` — a login-page rebrand) were deliberately left out of the commit.
+
+### Files Modified
+- [[PuduRequestSigner]], [[PuduApiClient]], [[PuduApiException]], [[PuduReportService]],
+  `dto/PuduDeliveryReport` (`telemetry/adapters/pudu/`) — **new**.
+- [[PuduReportController]] (`telemetry/controller/`) — **new**.
+- [[application.properties]] — `app.pudu.api.*` block.
+- Tests: `PuduRequestSignerTest` (goldens), `PuduReportServiceTest`.
+- Console: [[PuduReportPanel]] **new**; [[DeliveryReportView]] prop widened; `types/api.ts`
+  (`DeliveryReportData`, `PuduDeliveryReport`, `PuduStatus`); `lib/api.ts` (`puduApi`);
+  [[ReportsClient]] (panel in place of the placeholder; `tabs.pudu` in en/th).
+
+### Decisions Made
+- **Preview first, persistence second** (user's choice): derisks credentials before any migration.
+- **Not a `TelemetryAdapter`, and phase 2 will not reuse `robot_task_reports`:** PUDU's data-board is
+  aggregates with no task id; persistence means per-robot-per-day rows keyed `(sn, date)`.
+- **Per-robot report from the paging endpoint**, not the store-level totals endpoint the user first
+  linked — only the paging rows carry `sn`. The totals endpoint is kept in mind for a store view later.
+- **Units converted to metres/seconds** to honour the shared view's contract; precision caveat (10 m /
+  36 s granularity) stated on the panel and in the DTO doc.
+- **Haiku-free:** nothing in PUDU phase 1 calls a model.
+
+### Unresolved / Next Steps
+- [ ] Obtain the ApiAppSecret; set `PUDU_API_APP_KEY/SECRET` locally; hit `/api/v1/pudu/report/status?check=true`
+  (or the scratchpad `pudu_healthcheck.py`); then generate for one real serial and compare with the
+  PUDU portal's own dashboard for the same window.
+- [ ] The row shape (`sn`, `robot_name`, `product_name`, `shop_name`, `mileage` km, `duration` h) is from
+  the docs' example, unverified live.
+- [ ] Phase 2: `pudu_daily_stats` table + nightly sync + wiring into monthly report delivery. Needs the
+  `sn` → `Deployment` mapping settled first.
+- [ ] A store/robot picker on the panel (GetStoreList / StoreRobotList) instead of a typed serial.
+---
+
+---
+## Session: 2026-09-15b — Contract end date + "Robots with no data" page
+
+**Date:** 2026-09-15
+**Tags:** #session #backend #frontend #database
+
+### Summary
+Two features on `feat/contract-end-and-zero-data` (both repos). **(1) Contract end date** —
+`deployments.contract_end_date` (**V41**, nullable, additive), the mirror of the V33 start date and at the
+same grain (per deployment). [[ReportPreviewService]] now clips both ends (`clipToContract`; the end is
+inclusive to 23:59:59 Bangkok, the timezone boundary tested from the other side). New
+`ReportPeriod.coversContract(start, end)` is the one predicate for "does this robot belong on this
+month": [[CustomerReportBundleService]] filters both the customer bundle and the staff review list by it,
+so a robot whose contract ended before the month is not sent and not listed — its final partial month
+is still sent, clipped. [[RobotUnitService]] refuses an end before the start (400). Console: field on the
+Tools → Robots form, contract span shown on each robot row. **(2) Robots with no data** —
+[[ZeroDataRobotService]] computes, on request, every active deployment whose contract overlaps a month
+(same predicate) with zero `robot_task_reports` rows for it; each row carries the date the robot **last
+logged anything ever**, which separates "never synced" (likely a registration mistake) from "went quiet".
+Deliberately not a flag written at sync time — that would be stale after a backfill. Two aggregate
+queries on [[RobotTaskReportRepository]]. `GET /api/v1/telemetry/zero-data?month=` (defaults to last
+month). Console: **No data** tab beside Automation / Company / Preview under the Gausium brand
+([[ZeroDataPanel]]). Backend **277 tests** (+7 end-clipping, +5 zero-data); `npm run build` clean.
+
+### Files Modified
+- `V41__add_deployment_contract_end_date.sql` — **new**.
+- [[Deployment]], `RegisterRobotRequest`, `UpdateRobotRequest`, [[RobotUnitResponse]], [[RobotUnitService]].
+- [[ReportPeriod]] (`coversContract`), [[ReportPreviewService]] (`clipToContract`, `contractEndInstant`),
+  [[CustomerReportBundleService]] (`underContract` filter on both listings).
+- [[ZeroDataRobotService]] (`telemetry/core`), `ZeroDataRobotsResponse` (`telemetry/dto`) — **new**;
+  [[RobotTaskReportRepository]] (+2 queries), [[TelemetryController]] (+endpoint).
+- Tests: `ContractEndClippingTest` (7), `ZeroDataRobotServiceTest` (5).
+- Console: [[ZeroDataPanel]] **new**; [[RobotsPanel]] (end-date field, contract span on rows);
+  [[ReportsClient]] + `page.tsx` (`zero-data` tab); `types/api.ts`, `lib/api.ts`; en/th messages.
+
+### Decisions Made
+- **An ended contract drops the robot from later months entirely** (bundle and review list), rather than
+  sending pages of zeros until someone deactivates it. Final partial month still goes, clipped.
+- **Zero-data is a query, not sync-time state.** Always right; two aggregate reads.
+- **Scope = under contract that month**, so an ended robot is never reported as "missing" data it was
+  never meant to have.
+- **V41 taken on `main`.** `feat/re-kpi-dashboard` (unmerged) planned V41–V43 and is already stale since
+  V40 landed; it must renumber when it rebases.
+
+### Unresolved / Next Steps
+- [ ] Merge + deploy (Lightsail `./deploy.sh`; V41 runs on startup). Then set end dates for robots the
+  team knows have finished — the zero-data page will shrink as they do.
+- [ ] The zero-data page's Tools link opens Tools → Robots without pre-filtering (the page reads only
+  `?tab=`); a `?q=` filter there would make it one click.
+- [ ] Sync summary could log the zero-data count after the nightly run, as a nudge.
+---
+
+---
+## Session: 2026-09-15c — No-data worklist, sync outcome per robot, contract expiry alerts
+
+**Date:** 2026-09-15
+**Tags:** #session #backend #frontend #database #config
+
+### Summary
+The zero-data page became the customer success team's **monthly worklist**, and the contract end date
+gained **expiry alerting**. All on `feat/contract-end-and-zero-data` (both repos) after the first commit
+of that branch had already been merged to backend `main`. Three migrations: **V42** `zero_data_followups`
+(status / outcome / note per robot per month), **V43** `robot_units.last_sync_{attempt_at,success_at,error}`,
+**V44** `deployments.contract_expiry_alerted_at`. [[TelemetrySyncService]] now records each robot's
+outcome via two `@Modifying` repository updates (the loop is non-transactional and holds detached robots),
+so [[ZeroDataRobotService]] can give a **three-way reason** — `SYNC_FAILING` (attempted this month, last
+try failed: ours, fix before calling anyone), `NEVER_SYNCED` (registration question), `NO_TASKS`
+(genuinely idle) — sorted ours-first. Follow-ups overlay the computed list (`PUT …/zero-data/{id}/followup`,
+`RESOLVED` needs an outcome; `updated_by` from the JWT principal); `POST …/zero-data/{id}/exclude` reuses
+[[CustomerReportExclusionService]]. [[ContractExpiryService]] lists ending-soon (default 30 days) and
+ended (`GET /api/v1/robot-units/contracts/expiring?withinDays=`); `RobotUnitResponse.DeploymentInfo`
+carries `contractStatus` + `daysToContractEnd` so Tools → Robots badges rows. [[OpsAlertScheduler]]
+(08:00 Bangkok, `app.alerts.enabled`) emails via [[OpsAlertEmailService]] — separate from the
+customer-facing [[ReportEmailService]] on purpose — (1) contracts entering the window, each **once**
+(stamped; `RobotUnitService.update` clears the stamp when the end date changes, so an extension re-arms),
+and (2) on the 3rd, last month's zero-data list (the 3-day sync look-back has settled by then). Console:
+[[ZeroDataPanel]] rewritten as the worklist (reason badge with the sync error, follow-up editor, Exclude /
+Re-sync month / Edit robot, counts to-contact/contacted/resolved); new [[ContractsPanel]] (**Contracts**
+tab, 30/60/90-day window, ended section, alert sent/pending). Backend **286 tests**; build clean.
+
+User context: `TELEMETRY_SYNC_ENABLED=true` was set on Lightsail this session because data was showing
+unsynced; reminded that the nightly job only looks back 3 days, so an older gap needs `sync-all`.
+
+### Files Modified
+- Migrations V42, V43, V44 — **new**.
+- [[RobotUnit]] (+3 sync fields), [[Deployment]] (+alerted-at), [[RobotUnitRepository]] (+2 modifying
+  updates), [[DeploymentRepository]] (+2 contract queries), [[TelemetrySyncService]] (records outcome),
+  [[RobotUnitService]] (re-arms alert), [[RobotUnitResponse]] (+contract status), [[RobotUnitController]]
+  (+contracts endpoint), [[TelemetryController]] (+followup, +exclude).
+- `telemetry/entity/ZeroDataFollowup`, `telemetry/repository/ZeroDataFollowupRepository`,
+  `robotunit/service/ContractExpiryService`, `robotunit/dto/ContractExpiryResponse`,
+  `alerts/OpsAlertEmailService`, `alerts/OpsAlertScheduler` — **new**. [[ZeroDataRobotService]] +
+  `ZeroDataRobotsResponse` rewritten. [[application.properties]] `app.alerts.*`.
+- Tests: `ZeroDataRobotServiceTest` (9), `ContractExpiryServiceTest` (5).
+- Console: [[ZeroDataPanel]] rewritten, [[ContractsPanel]] **new**, [[RobotsPanel]] badges,
+  [[ReportsClient]] + `page.tsx` (`contracts` tab), `types/api.ts`, `lib/api.ts`, en/th.
+
+### Decisions Made
+- **Worklist, not report:** follow-ups stored per robot-month; the list itself still computed.
+- **Sync outcome recorded per robot** so a failing sync is never mistaken for an idle robot — with CS
+  calling customers off the list, this had to precede the call.
+- **Alert once per end date**, stamped; re-armed by a changed date. Selected on "not yet alerted" so a
+  missed morning is caught up.
+- **Zero-data digest on the 3rd**, not the 1st — the look-back has not settled on the 1st.
+- **Ops emails are a separate service** from customer report emails: no footer, no customer dressing.
+
+### Unresolved / Next Steps
+- [ ] **Go-live config on Lightsail:** `OPS_ALERTS_ENABLED=true`, `OPS_ALERTS_CS_EMAIL=<address>`;
+  needs `MAIL_USERNAME/PASSWORD` (same SMTP as reports). Deploy runs V42–V44 on startup.
+- [ ] The zero-data digest and the monthly report emails both depend on the same sync; the report send is
+  on the 2nd and the digest on the 3rd — consider moving the send to the 4th so CS can act first.
+- [ ] Sync outcome fields are empty until the first sync after deploy runs; `NEVER_SYNCED` vs `NO_TASKS`
+  for existing robots relies on whether any task row exists.
+- [ ] Vercel preview of the frontend branch is what the user wants to check first; merge after.
+---
+
+---
+## Session: 2026-09-15d — The fleet sync that stopped at robot 24: an unchunked IN clause
+
+**Date:** 2026-09-15
+**Tags:** #session #backend #database #incident
+
+### Summary
+A manual whole-fleet backfill (165 robots, 2026-08-01 → 2026-09-15) **stopped dead at robot 24**, twice,
+with no error, no failure count, and a progress counter that simply never moved. Diagnosed and fixed;
+three commits on `main` (`e0ea8c8`, `41d39e3`) plus the rename (`52ff67c` earlier).
+
+**What it actually was.** A thread dump — `docker compose exec api kill -3 1`, which makes the JVM print
+every stack to stdout and therefore into `docker compose logs`, and which works on the JRE image where
+`jstack` does not exist — showed the sync thread `RUNNABLE`, `elapsed=1689s`, `cpu=7066ms`:
+
+```
+sun.nio.ch.Net.poll
+  ...
+org.postgresql.core.v3.QueryExecutorImpl.execute
+org.postgresql.jdbc.PgPreparedStatement.executeQuery
+com.zaxxer.hikari.pool.ProxyPreparedStatement.executeQuery
+```
+
+Blocked on a socket, but **the Postgres socket, not Gausium's**. 28 minutes elapsed, 7 seconds of CPU:
+pure I/O wait. The query was `findByExternalTaskIdIn(externalIds)` in
+[[TelemetrySyncService]]`.persistFetched` — **one bind parameter per fetched task**. Robot 24 is simply the
+first robot in the fleet with a long enough history to produce an id list large enough that the query, sent
+through a cross-region pooler, never came back. PostgreSQL also refuses more than 65,535 bind parameters,
+so the unchunked form had a hard ceiling regardless.
+
+**Why "Refresh reports already stored" made it far worse.** With `refresh=true` the code loads the stored
+*entities* (`findByExternalTaskIdIn`) rather than just asking which ids exist
+(`findExistingExternalTaskIds`), and then rewrites every row. The user ran the backfill with Refresh on
+over a six-week range three times; every log line read `0 saved, N updated`, which is the tell — `updated`
+is only ever non-zero when refresh is on. A normal sync skips what it already has and is dramatically
+cheaper. **Refresh is for repairing values after a mapping change, not for backfilling.**
+
+**The latency multiplier nobody had noticed.** The database is Supabase in **ap-southeast-2 (Sydney)**
+while the API runs on Lightsail in **Singapore** — roughly 100ms per statement. Hibernate JDBC batching
+was **never configured**, so each row was its own round trip: a robot with 500 task reports spent about a
+minute doing nothing but waiting. Now batched at 100.
+
+**Two wrong turns worth remembering, both corrected by evidence rather than argument:**
+- The "Could not load robots" banner in the console was diagnosed as connection-pool starvation. The logs
+  said `Unauthorized request to /api/v1/robot-units` — a plain **401, an expired JWT**. Read the logs
+  before theorising about the pool.
+- The hang was first attributed to [[GausiumApiClient]] having no HTTP timeouts. That gap was real and is
+  fixed (`e0ea8c8`), but it was **not this bug** — a read timeout would have fired at 90s. The thread dump
+  settled it.
+
+### Files Modified
+- [[TelemetrySyncService]] — id lookups and `saveAll` chunked at 500 (`chunked` / `chunkedEntities`).
+- [[application.properties]] — `hibernate.jdbc.batch_size=100`, `order_inserts`, `order_updates`;
+  `spring.datasource.hikari.data-source-properties.socketTimeout` (`DB_SOCKET_TIMEOUT_SECONDS`, default 300s).
+- [[GausiumApiClient]] — `SimpleClientHttpRequestFactory` with connect 15s / read 90s
+  (`GAUSIUM_API_CONNECT_TIMEOUT_SECONDS`, `GAUSIUM_API_READ_TIMEOUT_SECONDS`).
+- [[SecurityConfig]] — `/actuator/health` permitted; the Docker health check was logging a 401 WARN every
+  30s, ~2,900 lines a day, which buried the sync lines this incident needed.
+
+### Decisions Made
+- **Chunk at 500**, not as an optimisation but because an unbounded `IN` is a correctness problem: it has a
+  hard parameter ceiling and an unbounded execution time.
+- **`socketTimeout` as the backstop.** Hikari's `connection-timeout` covers *acquiring* a connection, never
+  *running* a statement — that is why nothing stopped the stuck query.
+- **Gausium timeouts kept** even though they were not the cause: a single-threaded fleet run must not be
+  able to park on a silent HTTP read either.
+
+### Unresolved / Next Steps
+- [ ] **Deploy `41d39e3`** (`bash deploy.sh`), then re-run August with **Refresh unchecked**.
+- [ ] ⚠️ **Render may still be live** and the vault (line ~332) records `TELEMETRY_SYNC_ENABLED=true` set
+  there. Its scheduler runs on its own clock regardless of which API URL the console uses, so it would be
+  syncing the same fleet from the same Gausium account nightly, and would send the monthly bundle twice if
+  its `REPORT_EMAIL_SCHEDULER_ENABLED` is true. **Copy `JWT_SECRET` and `PARTNER_JWT_SECRET` off Render
+  before suspending it** — the vault says Render is the only place those production values exist.
+- [ ] `fetchTaskReports` still accumulates every page into one list before returning; a robot with a very
+  large history holds it all in memory. Chunking the database side removes the immediate danger, but
+  streaming per page would be the honest fix.
+- [ ] Consider an `ORDER BY` on `findActiveWithRobotAndCustomer` so "robot 24" means the same robot run to
+  run — it made this bug reproducible by luck, not design.
+---
+
+---
+## Session: 2026-09-15e — Recommendation "Something went wrong": truncation + timeouts, tested on a preview stack
+
+**Date:** 2026-09-15
+**Tags:** #session #backend #frontend #ai #deployment #config
+
+### Summary
+The recommendation flow failed mid-process with the generic "Something went wrong while generating
+recommendations". Two independent faults, one on each side. Backend: [[ClaudeAiService]] had `max_tokens`
+hard-coded at 4096 and never looked at `stop_reason`, so a three-option recommendation was silently cut off
+and `extractJson` then failed on half a document; RestClient also had no connect/read timeout. Frontend: the
+axios client's default 60s timeout fired on a minutes-long model call and its automatic network-error retry
+launched a **second** generation while the first was still running server-side — double the cost, and an
+error either way. Fixed both, then — because `application-local.properties` points at **production**
+Supabase and there was nowhere safe to try it — stood up Kusk24's `deploy/preview` stack on the Lightsail
+box, seeded it, ran the real recommendation through an SSH tunnel, and it **passed**. Merged to `main` on
+both repos: backend `f44fbb8` (fast-forward), frontend `07a3e62`. **Not yet deployed** — the live box still
+runs `41d39e3`.
+
+**The preview stack, as actually run** (it took a while; the steps are the point):
+1. `docker compose up -d --build` in `deploy/preview` builds `raaspal-api:preview` from the *same checkout*
+   as production (`context: ../..`) — so `git checkout` the branch first and **`git checkout main` after**.
+   The Maven build is what trips the Lightsail CPU alarm; it clears once the container is up.
+2. It crash-looped on `WeakKeyException`: the template's `PARTNER_JWT_SECRET` was too short. JWT secrets
+   need ≥256 bits — `openssl rand -base64 48`.
+3. The DB password is not in `preview.env`; it is `PREVIEW_DB_PASSWORD` in `deploy/preview/.env` and
+   compose injects it into both containers.
+4. A mail stack trace every 30s is the Docker health check hitting `MailHealthIndicator` with blank
+   `MAIL_*` — harmless, makes `/actuator/health` return 503/DOWN. `MANAGEMENT_HEALTH_MAIL_ENABLED=false`
+   silences it.
+5. Port 8081 is bound to `127.0.0.1` on the box and nginx has only the production symlink, so the preview is
+   reachable **only** through `ssh -N -L 8081:127.0.0.1:8081`. Every scheduler in `preview.env` is `false`.
+6. The DB is empty except the self-seeded admin, so a recommendation fails for a boring reason. Seed:
+   `D:\Work\SoftwareWorkSpace\temp\preview-seed.sql` — `Preview Test Co` + 3 VERIFIED Gausium robots with
+   differentiated specs + 1 DRAFT `Prototype X` as a control that must never be recommended. The `robot_specs`
+   columns are the *live* names (`robot_weight_kg`, `width_cleaning_mm`, `cleaning_efficiency_scrub_sqm_h`…),
+   not the V1 names.
+7. `ANTHROPIC_API_KEY` is deliberately `TODO` in Kusk24's template; without it `MockAiService` loads and the
+   test is meaningless. The user copied production's key across on the box (`sed` from `../api.env`) and
+   `docker compose up -d` recreated the container — env vars are fixed at creation, so a recreate is required.
+8. Console: `.env.local` **MODE C** block, `NEXT_PUBLIC_API_URL=http://localhost:8081`; restart `npm run dev`
+   (it reads `.env.local` only at start). Sanity check: Customers page shows only `Preview Test Co`.
+9. Afterwards `docker compose down` (**not** `-v` — the `raaspal-preview_preview-db` volume keeps the seed for
+   next time), and `.env.local` back to MODE A.
+
+**Tooling traps met on the way:** Windows OpenSSH refuses a `.pem` the sandbox has added an ACL entry to —
+`icacls … /inheritance:r /grant:r "<user>:F"`. PowerShell 5.1 strips inner double quotes from an `ssh '…'`
+argument, so anything with `"` inside must be run *after* logging in, not inline. WSL cannot see
+`C:\…` paths in `-i` and has no key of its own.
+
+### Files Modified
+- [[ClaudeAiService]] — `max_tokens` from `app.anthropic.max-tokens` (default 16000); `stop_reason` captured
+  in `AnthropicResponse`; a `max_tokens` stop throws `BadRequestException` naming the token limit instead of
+  failing later in `extractJson`; `SimpleClientHttpRequestFactory` with connect 15s / read 300s.
+- [[application.properties]] — `ANTHROPIC_MAX_TOKENS`, `ANTHROPIC_CONNECT_TIMEOUT_SECONDS`,
+  `ANTHROPIC_READ_TIMEOUT_SECONDS`.
+- [[api.ts]] (`lib/api.ts`) — `extractFromFile` 240s, `recommendationApi.generate` 360s,
+  `proposalApi.generate` 360s, `translateApi.toThai` 120s, all `skipRetry: true`.
+- `.env.local` (gitignored) — MODE C block for the preview tunnel, left commented.
+
+### Decisions Made
+- **Client timeout longer than the server's Anthropic read timeout** (360s vs 300s) so the backend fails first
+  and can say *why*; the frontend only ever sees a message, never a bare timeout.
+- **Never auto-retry a model call.** The retry helper is right for a dropped connection and wrong for anything
+  that costs money and runs for minutes.
+- **Detect truncation rather than raise the ceiling blindly.** 16000 covers three options comfortably, but
+  the `stop_reason` check is what turns a mystery failure into a one-line explanation.
+- **Preview = Kusk24's stack, not a second Supabase project** (free tier is full at 2) and not local Docker
+  (none installed). The sidecar Postgres is the only database in the project that is not production.
+
+### Unresolved / Next Steps
+- [x] **Deployed `f44fbb8`** to the live box 2026-09-15 — container rebuilt, `(healthy)`, public `/actuator/health` 200.
+- [ ] Add a warning comment at the top of [[application-local.properties]]: it points at **production**.
+- [ ] `MANAGEMENT_HEALTH_MAIL_ENABLED=false` in `preview.env` so the preview health check stops crying wolf.
+- [ ] ⚠️ Still open from 2026-09-15d: check whether Render is live with `TELEMETRY_SYNC_ENABLED=true`; copy
+  `JWT_SECRET` / `PARTNER_JWT_SECRET` off it first.
+- [ ] Nothing runs tests before a deploy. A CI step on push to `main` would have caught none of *this* bug
+  (it needed a real model call) but it is still the obvious gap.
+- [ ] PUDU resumes when the Cloud API `ApiAppKey`/`ApiAppSecret` arrive from open.platform@pudutech.com.
+---
+
+---
+## Session: 2026-09-16 — AutoXing service-ticket analytics: brand sync, `/tickets` page, Excel export
+
+**Date:** 2026-09-16
+**Tags:** #session #backend #frontend #database
+
+### Summary
+The RE team reported a run of AutoXing problems and asked for the brand's whole ticket history from the monday Delivery Tickets board, first as an Excel and then as a live console page. Built a per-brand ticket pipeline on top of the existing case-report tables — no migration. The nightly open-group snapshot only ever sees the "All Case" group, and 55 of AutoXing's 76 tickets sit in the Done groups, so a new **filtered read** ([[MondayBoardReader]]`.readFilteredItems`, `items_page(query_params)` with OR'd rules + `next_items_page`) pulls just the brand's rows from every group in one API call instead of paging 5,400 rows across 55 calls. A brand is recognised by **Model Robot ∈ {Zara, Zara L300, Zara Bot L600, D150} OR item name containing Zara/D150** (user-confirmed; four tickets carry a wrong Bella/Pudu label but a Zara/D150 name). Rows upsert into `case_ticket` via [[CaseTicketSyncService]]`.syncFiltered` — same item-id key as the open-group sync, `is_present` set from the group rather than by absence, comment replies now stored with `parent_update_id`. The brand sync runs after the board snapshots in [[CaseSyncCoordinator]] and on demand. Analytics ([[BrandTicketAnalyticsService]]) follow the RE team's 2026-09-08 rules: 7-day SLA on RE Action, 14-day repeat on the same serial; "open" = not in a Done group and status ≠ Done. Console: new **Service Tickets** sidebar page `/tickets?brand=autoxing` (KPI tiles, monthly stacked volume, root-cause bars, aging / top sites / repeat robots lists, expandable ticket table with comment threads, Refresh, Export Excel) and a compact [[BrandTicketHealthCard]] preview on the Team Dashboard that links to it. Recharts added (first chart library in the console); the two-series palette was run through the dataviz validator for both themes. Backend 289 tests green, `npm run build` clean. **Data caveat found on the way:** only 4 tickets were created on the board on 2026-09-15 and 1 is AutoXing — the reported spike was not logged there.
+
+### Files Modified
+- [[MondayBoardReader]] (`casereport/adapters/monday/MondayBoardReader.java`) — `FilterRule`, `readFilteredItems`, `statusLabelIndexes` (label indexes read live)
+- [[MondayUpdate]] (`casereport/adapters/monday/dto/MondayUpdate.java`) — `replies` list (null on group reads)
+- [[CaseTicketSyncService]] (`casereport/service/CaseTicketSyncService.java`) — loop extracted to `upsert`; `syncFiltered` (no absence pass); replies stored; `DELIVERY_COLUMNS` widened with Root Cause / RE / Type / Level / Warranty / Channel (raw only); `sourceUpdatedAt` now set
+- [[CaseSyncCoordinator]] (`casereport/service/CaseSyncCoordinator.java`) — runs `BrandTicketSyncService.syncAll()` after the boards
+- [[CaseTicketUpdateRepository]] — `findByCaseTicketIdInOrderByPostedAtAsc`
+- New `casereport/brand/` — [[BrandTicketProperties]] (`app.tickets.*`), [[BrandMatcher]], [[BrandTicketSyncService]], [[BrandTicketQueryService]], [[BrandTicketAnalyticsService]], [[BrandTicketExcelWriter]] (Summary / Tickets / Comments), [[BrandTicketController]] `/api/v1/tickets/{brand}/{summary,export,sync,sync/status}` (ADMIN / RAASPAL_TEAM), `dto/BrandTicket`, `dto/BrandTicketSummary`
+- [[application.properties]] — `app.tickets.monday-web-url` (blank hides deep links), `app.tickets.brands[0]` = autoxing
+- Test `casereport/brand/BrandTicketAnalyticsServiceTest` — matcher + KPI maths; two existing tests updated for the new `MondayUpdate` arity
+- Frontend: `app/[locale]/tickets/{page,TicketsClient}.tsx`, `components/tickets/{TicketPanel,TicketKpiTiles,TicketCharts,TicketBreakdowns,TicketTable}.tsx`, [[BrandTicketHealthCard]], `lib/tickets/{types,range}.ts`, [[api.ts]] `brandTicketApi`, [[AppSidebar]] "Service Tickets", `app/[locale]/page.tsx` card, `globals.css` `--viz-*` tokens, `messages/{en,th}.json` `tickets` + `teamDashboard.tickets` + `nav.tickets`, `package.json` recharts ^3
+
+### Decisions Made
+- **Persist, don't proxy:** the page reads `case_ticket`, not monday live — rate limits, comment history, and the properties file's own warning that unsynced days are unrecoverable.
+- **Reuse `case_ticket`, no migration:** the extra analytics columns live in `raw_columns`; both syncs request the same column superset so whichever runs last leaves the same payload.
+- **`is_present` from group, not absence, on the filtered sync:** the filter returns a subset, so absence means "did not match", not "left the board".
+- **Brand as config (`app.tickets.brands`)** with a `?brand=` page param so PUDU/Keenon can be added without a release.
+- **Recharts** for the two real charts; plain HTML bars for the ranked lists where names matter more than axes.
+
+### Unresolved / Next Steps
+- [ ] Deploy backend to Lightsail; the 06:15 job then populates the brand rows. Or press Refresh once — note local points at Supabase prod.
+- [ ] Set `TICKETS_MONDAY_WEB_URL=https://<account>.monday.com` in `deploy/api.env` to enable per-ticket deep links.
+- [ ] Ask the RE team where the 2026-09-15 AutoXing spike was logged — it is not on the Delivery Tickets board.
+- [ ] Fix the four mislabelled tickets on the board (Model = Bella / Pudu 1 on Zara/D150 names).
+- [ ] Consider adding PUDU as `brands[1]` once its model labels are confirmed.
+---
+
+---
+## Session: 2026-09-16b — On Hold and Delivery pending sheets; Solution column on Sonnet 5
+
+**Date:** 2026-09-16
+**Tags:** #session #backend #frontend #ai #deployment
+
+### Summary
+Two new sheets in the daily pending-case report, on the RE team's instructions, and a model change.
+**On Hold** is every held case on the cleaning *and* delivery boards except the airports', on one sheet
+with a Board column and an All / Cleaning / Delivery filter (counts on each) in the console. **Delivery
+pending** is MK's mirror: every other customer on the delivery board under MK's 3/5-day province rule; a
+ticket with no Project tag lands here rather than on no sheet. Held cases now leave **Cleaning, Makro and
+Delivery** — they are on On Hold and nowhere else. **MK keeps its held cases** ("leave MK pending case as
+it is"), so a held MK case is on two sheets, by request. AOTGA untouched. The **Solution column is now
+written by Sonnet 5** (`claude-sonnet-5`, 2× Haiku's price, still cents per report); the AOTGA parts cells
+stay on Haiku under their own `CASE_PARTS_MODEL` — extraction, not prose.
+
+**Design.** On Hold is the first two-board sheet and it has **no column map of its own**: each board's
+generator gained a `Scope.ON_HOLD` that returns its held rows, and [[OnHoldReportGenerator]] only joins
+them, stamps `board`, sorts oldest-first across both, and numbers. The column ids stay where the design
+put them (`text` is Main Issue on cleaning, Solution on delivery — the reason they were never shared).
+"Held" is decided *after* the SLA is computed, not in `belongsTo`, because it is [[SlaCalculator]]'s
+verdict (Status or Sup Status contains "on hold") and that is the one place it is computed. Definitions
+seed themselves on first boot (`Seeded the DELIVERY_PENDING report definition` / `ON_HOLD_PENDING` in the
+deploy log), so **the backend must be deployed before the frontend tabs work** — the console's new tabs
+404 against an old build.
+
+**The merge took more than it should have.** `feat/on-hold-and-delivery-sheets` was branched with
+`git checkout -b` **without checking which branch was checked out** — it was `feat/brand-tickets`, the
+other session's AutoXing ticket analytics (backend `e4fabe7`..`02a959e`, frontend `3af50c0`..`9f18efc`),
+pushed as a branch but unmerged. The fast-forward carried all of it onto `main` in both repos and pushed.
+Assessed before deciding: no scheduler, no required env, hooks into the existing daily snapshot, tests
+passed in the same run, `tsc` clean. User chose **keep** by saying "deploy". Backend `22b01f4` deployed
+to Lightsail 2026-09-16 17:05 UTC, `(healthy)`, public health `UP`, `/api/v1/case-reports/on-hold` live.
+Frontend `feb329d` on `main` for Vercel.
+
+**Rule for next time: `git branch --show-current` before `checkout -b`, every time, in a working tree
+another session shares.**
+
+**Also seen:** a preview container from the other session bound to **`0.0.0.0:8081`** (its `PREVIEW_BIND`
+change), up 11 hours — shielded by the Lightsail firewall only. Flagged to the user, not touched.
+
+### Files Modified
+- [[CaseReportRow]] — new nullable `board` component (`BOARD_CLEANING` / `BOARD_DELIVERY`), `withBoard()`;
+  carried through edits like the parts fields.
+- [[CleaningPendingReportGenerator]] — `Scope.ON_HOLD`; CLEANING and MAKRO skip held rows; `isMakro()` split
+  out of `belongsTo`.
+- [[MkPendingReportGenerator]] — `Scope { MK, OTHER, ON_HOLD }`; `generate(Scope, asOf)`; OTHER skips held.
+- [[OnHoldReportGenerator]] — new; the join.
+- [[CaseReportDefinition]] / [[CaseReportDefinitionSeeder]] — `DELIVERY_PENDING`, `ON_HOLD_PENDING`.
+- [[CaseReportRunService]], [[CaseReportController]] (`delivery`, `on-hold` slugs), [[CaseReportDailyScheduler]],
+  [[CaseReportExcelWriter]] (Board column on On Hold).
+- [[ClaudeAiService]] — `CASE_SOLUTION_MODEL = claude-sonnet-5`; new `CASE_PARTS_MODEL` (Haiku).
+- Tests: cleaning split rewritten for three scopes (every non-airport ticket on exactly one sheet); MK
+  three-scope test added; Excel and edit-service tests updated. 11 case-report classes green.
+- Frontend: [[CasePendingPanel]] (`boardFilter` spec flag, Board column, radiogroup filter, per-row ticket
+  link board, filtered-empty state), [[ReportsClient]] + `reports/page.tsx` (`case-delivery`, `case-on-hold`),
+  `lib/api.ts` slugs, `types/api.ts` (`CaseBoard`, `board?`), `messages/en|th.json`.
+
+### Decisions Made
+- **One On Hold table with a filter, not two blocks** — the reader wants "what has waited longest" across
+  both boards; the filter is for when they only own one.
+- **MK keeps held cases; Cleaning, Makro, Delivery drop them** — exactly as instructed, including the
+  resulting double-listing of a held MK case.
+- **No-tag delivery tickets go to Delivery** — a blank Project cell is a prompt to fill the tag; a ticket
+  on no sheet is a case nobody sees.
+- **Parts extraction stays on Haiku** — "all solution columns" named the Solution column; four extracted
+  fields do not read better for a bigger model.
+
+### Unresolved / Next Steps
+- [ ] Watch the first real On Hold and Delivery generations against the board — the filter counts should
+  add up to the total, and no airport ticket should appear on On Hold.
+- [ ] The row-edit dialog has no Board control; an On Hold row added by hand shows only under "All".
+- [ ] Decide whether `feat/brand-tickets` being on `main` was the intended state (kept on "deploy"); if not,
+  a revert commit is the safe path — it is deployed now.
+- [ ] The `0.0.0.0:8081` preview container — confirm the firewall really blocks it, or rebind to 127.0.0.1.
+---
+
+---
+## Session: 2026-09-16c — Solution cell laid out one entry per line, matched against the staff's 16 Sep sheet
+
+**Date:** 2026-09-16
+**Tags:** #session #backend #frontend #ai #deployment
+
+### Summary
+The user put the system's `mk-pending-2026-09-16.xlsx` beside the sheet the RE staff built by hand for
+the same day. **Content was already close** — rows Y049 and M569 were the staff's lines almost verbatim,
+which settles that the comment-thread paraphrase works. What differed was shape: the staff stack **one
+dated entry per line**, and the prompt (verified against the *09 Sep* workbook) asked the model for one
+space-joined line, which is what the cell printed. Fixed in code, not in the prompt:
+[[SolutionLine]]`.oneEntryPerLine` puts a break before every date token that begins an entry, so the
+layout no longer depends on how well the model follows an instruction on a given day. A date that closes
+a phrase ("เข้า PM 21-Sep") is left in place because the split requires a phrase after the token; the
+prompt now also asks for in-phrase dates in words (วันที่ 21) so the case does not arise. A **silent
+ticket** (no comments — Y246 that day) no longer prints an empty cell: it gets the opener the staff write
+by hand, `DD-Mon อยู่ระหว่างตรวจสอบและประเมินอาการหุ่นยนต์`, dated the open date. The console shows the
+breaks (`whitespace-pre-line`) and no longer clamps Solution at three lines. Applies to every sheet with a
+Solution column. Backend `522e14b` deployed 17:30 UTC, `(healthy)`; frontend `e97a114` on `main`.
+
+**Differences that are not the generator's to fix, told to the user:**
+- **Row count** — system 13 tickets, staff 9. Ours is the board's All Case group at generation time; the
+  staff omitted M454, Y112, a second M154 (SN …6023) and M079 (whose last line says it was fixed). Which is
+  right is a board question. The staff's row 5 carries M454's serial under M475 — a copy slip on their side.
+- **Y084's history** — the staff's entries start 17-Aug, before the board's 25-Aug open date, and date the
+  approval 24-Aug where ours (from the comment timestamps) says 04-Sep. Ours only knows the thread; context
+  carried forward by hand is an edit-dialog job.
+- **"Over SLA เนื่องจาก…" header** — the staff wrote it on one of three over-SLA rows. Not a rule yet; not
+  built. Offered.
+
+**The frozen 16 Sep run still holds single-line cells** — "Regenerate from monday" rewrites the untouched
+rows; edited rows stay edited. Runs from 17 Sep 06:15 come out in the new layout.
+
+### Files Modified
+- [[SolutionLine]] — `ENTRY_START` pattern, `oneEntryPerLine()`.
+- [[SolutionLineWriter]] — `write()` takes `openDate`; applies `oneEntryPerLine` to both typed and
+  generated cells; `OPENER` for a silent ticket; never returns blank on a board row.
+- [[CleaningPendingReportGenerator]], [[MkPendingReportGenerator]] — pass `openDate`.
+- [[AiPromptTemplates]] — in-phrase dates in words.
+- Tests: three `SolutionLineTest` cases (stack, "PM 21-Sep" edge, whitespace folding); MK silent-ticket
+  opener test (`summariseProgress` never called).
+- [[CasePendingPanel]] — Solution cell `whitespace-pre-line`, clamp removed, `max-w-[22rem]`.
+
+### Decisions Made
+- **Breaks in code, not from the model** — a layout rule that must hold every day belongs in code.
+- **Opener dated the open date, not the report date** — it is what the reviewer would have typed.
+- **No clamp on Solution in the console** — the reviewer is checking every entry; the hidden fourth is the
+  one that would have needed correcting.
+
+### Unresolved / Next Steps
+- [ ] Regenerate 16 Sep MK to see yesterday in the new layout.
+- [ ] Resolve the 13-vs-9 row question on the board.
+- [ ] Decide on the "Over SLA เนื่องจาก…" header line for over-SLA rows.
+- [ ] `feat/brand-tickets` preview container on `0.0.0.0:8081` still up (from 2026-09-16b).
+---
+
+---
+## Session: 2026-09-16d — On Hold took minutes to generate: concurrent model calls, one generation per date
+
+**Date:** 2026-09-16
+**Tags:** #session #backend #frontend #incident #deployment
+
+### Summary
+The first On Hold generation spun for minutes. The log told the story: cleaning board read at 17:34:41,
+no "ON_HOLD pending report" line two minutes later, then at **17:36:41 exactly** a second identical
+generation started on another thread. One model call per held ticket, **in series, across two boards**
+(Sonnet 5 per call is slower than Haiku) took longer than the console's 120s ceiling; the request timed
+out and **TanStack Query's default `retry: 3`** fired the same generation again — the axios `skipRetry`
+was set, but that only covers the HTTP layer. Four overlapping generations, each paying for the same
+model calls and each holding one of five pooled connections inside a `@Transactional`. None of them
+froze a run before the deploy restarted the container.
+
+**Fixed in both layers.** [[SolutionLineWriter]] owns a bounded daemon pool
+(`app.casereport.solution-concurrency`, default 6, `CASE_REPORT_SOLUTION_CONCURRENCY`) and a
+`buildAll(List<Supplier<T>>)`; the Cleaning and MK generators now decide in series what belongs on the
+sheet and build the rows together, each row's construction (with its `write` inside) as one task, so the
+generator's loop still reads as a loop. [[CaseReportRunService]] keeps an in-flight
+`ConcurrentHashMap<sheet|date, CompletableFuture>`: a second request while one is generating joins it
+and gets the same rows — the original exception, unwrapped, if it failed. Console: `retry: false` on the
+case-report query, 300s timeout. Backend `a95301b` deployed 17:44 UTC, `(healthy)`; frontend `f8970af`.
+
+**Correction recorded from 16c:** "Regenerate from monday" on a *past* date is **refused** by design
+(the board is live; a past day cannot be reconstructed), so the 16 Sep run cannot be re-laid-out; only
+edited. The advice to regenerate it was wrong.
+
+### Files Modified
+- [[SolutionLineWriter]] — explicit constructors (`@Autowired` with `@Value`, and a test one), pool, `buildAll`.
+- [[CleaningPendingReportGenerator]], [[MkPendingReportGenerator]] — `pending` list of suppliers, built via
+  `solutions.buildAll` before sorting.
+- [[CaseReportRunService]] — `inFlight` map around generate/keepEdited/freeze.
+- [[application.properties]] — `app.casereport.solution-concurrency`.
+- [[CasePendingPanel]] — `retry: false`; `lib/api.ts` — `rows` timeout 300s.
+
+### Decisions Made
+- **Concurrency in the writer, not a global executor** — the writer is the thing that is slow; the
+  generators stay ignorant of threads beyond handing over suppliers.
+- **Dedupe on the server even though the client no longer retries** — two reviewers can open the same
+  tab; the server must not depend on client manners.
+- **AOTGA's [[PartsLineWriter]] left in series** — 15 rows in 19s on Haiku; not the problem today.
+
+### Unresolved / Next Steps
+- [ ] Measure the first On Hold generation after deploy (`grep "On Hold report"` in the log for timing).
+- [ ] If Anthropic rate-limits at 6 concurrent, `CASE_REPORT_SOLUTION_CONCURRENCY` is the knob.
+- [ ] `buildAll` could serve AOTGA's parts calls too if that sheet grows.
+---
+
+---
+## Session: 2026-09-16e — Any row can be taken off a pending-case sheet, and put back
+
+**Date:** 2026-09-16
+**Tags:** #session #backend #frontend #deployment
+
+### Summary
+"The staff should be able to delete a certain row in here too right?" They could not: Remove lived only
+inside the pencil dialog and only for rows added by hand, and a board row was refused outright with
+"a regeneration would bring it back" — true, because nothing remembered the removal. The RE team drops
+tickets the board still lists (resolved but not closed; not that morning's concern — the 13-vs-9 gap
+against their 16 Sep sheet), so the sheet has to be able to say so.
+
+**Design: hide, don't delete.** [[CaseReportRow]] gained `boolean removed`. A removed **board** row stays
+in the stored run, `removed=true`, numbered **0**; the sheet renumbers around it, the Excel leaves it
+out, `ticketCount` counts the sheet, and `keepEditedRows` carries the removal through regeneration —
+taking the board's fresh content but keeping it hidden, so a later restore shows what the board says
+now. `restoreRow` (new `POST …/rows/{id}/restore`) flips it back into the sheet's order. A row **added
+by hand** is still deleted outright: nothing would bring it back and there is nothing to restore it
+from. monday is never written. Console: a **trash button beside every pencil**, a confirmation that
+says which of the two removals it is, an **"N removed by hand"** chip that toggles the removed rows into
+view dimmed with a **Restore** each; totals and the On Hold board-filter counts are of the sheet, not the
+store. The dialog's Remove button now works for any row. Backend `7045d2c` deployed 17:57 UTC,
+`(healthy)`; frontend `ff23762`.
+
+**Rows endpoint now returns removed rows too** (with `removed: true`) — the console filters; the Excel
+path filters server-side. Any other consumer of `rowsFor` must filter `removed` itself.
+
+### Files Modified
+- [[CaseReportRow]] — `removed` component, `withRemoved()`; every constructor site updated.
+- [[CaseReportRunService]] — `removeRow` hides a board row / deletes a manual one; `restoreRow`; `store()`
+  helper; `renumber` skips removed (0); `keepEditedRows` carries removals; `export` filters; ticket counts
+  count the sheet.
+- [[CaseReportController]] — `POST /{report}/rows/{sourceItemId}/restore`.
+- Tests: `aRowAddedByHandIsDeletedOutright`, `aBoardRowIsHiddenNotDeletedAndStaysHiddenThroughRegeneration`
+  (hide → regenerate → restore → refuse a second restore); Excel test constructor updated. 11 green.
+- [[CasePendingPanel]] — `restore` mutation, `askRemove`, `renumber`, `sheet`/`removedRows`/`visible`,
+  chip, dimmed rows, Trash2/Undo2 buttons; [[CaseRowEditDialog]] — any row removable; `lib/api.ts`
+  `restoreRow`; `types/api.ts` `removed?`.
+
+### Decisions Made
+- **Hidden rows keep their place and take fresh content on regenerate** — restore should never resurrect
+  stale cells.
+- **Numbered 0 while hidden** — one numbering, stored and shown, so an edit's returned `no` is right.
+- **Removed rows returned by the API** rather than filtered — the console needs them for the chip and
+  Restore; one list, one truth.
+
+### Unresolved / Next Steps
+- [ ] First On Hold generation timing after the concurrency fix — not yet exercised.
+- [ ] A removed row's ticket leaving the board drops the hidden row with it (by design); confirm that
+  reads right to the team.
+---
+
+---
+## Session: 2026-09-17 — Scrollable Solution cell; PM company filter hit the 8 KB URL cliff; KPI merge fetched and deployed
+
+**Date:** 2026-09-17
+**Tags:** #session #backend #frontend #deployment #incident
+
+### Summary
+Three things. **(1) Solution cell** on every pending sheet capped at ~8 lines with an inner scrollbar
+(`max-h-56 overflow-y-auto`), and a `.scroll-quiet` utility: 6px rounded thumb, no track, no arrows, faint
+until hover. Two traps on the way, both Chrome ≥121: an element that has *any* non-default
+`scrollbar-width`/`scrollbar-color` — **including one inherited from `html`** — makes Chrome ignore its
+`::-webkit-scrollbar` rules and draw the classic arrowed bar. Fix: reset both to `auto` on the element, put
+the webkit rules on it, and give Firefox the standard properties only inside
+`@supports not selector(::-webkit-scrollbar)`. Frontend `584f19f`..`7bb74fc`.
+
+**(2) PM planner: "show only PCS" → "Could not load the PM plan".** The company filter travels as an
+*exclusion* list (chosen so "no filter" is a short URL). Inverted, it is 148 names, Thai ones at 9 bytes per
+character: the nginx access log on the box showed the request line at **8,185 bytes**, which nginx's
+request-line buffer (8 KB) and Tomcat's default header limit (8 KB) both refuse. Fix on both ends: the API
+takes `company=` (chains to show) beside `excludeCompany=`, an include list wins ([[PmFilter]]
+`filtersCompanies()`/`excludes()`; both [[PmPlanningController]] endpoints); the console sends whichever
+list is shorter given the company options (`toQuery(filters, allCompanies)`), so "only PCS" is eleven bytes;
+a page opened from a `company=` URL derives the exclusion model once options load (`resolvedFilters`,
+derived — the `react-hooks/set-state-in-effect` rule refused the effect version). Tomcat header limit to
+16 KB as margin. Backend `7f978c0`, frontend `b53ed8c`. `PmFilterTest` added.
+
+**(3) Fetched PR #3 `feat/re-kpi-dashboard`** (Kusk24: RE KPI dashboard, CSAT workbook uploads, migrations
+V45–V49; 28 backend + 27 frontend commits). Branched the filter fix *from the fetched main* — checked with
+`git merge-base --is-ancestor` before the ff-merge, per the rule from 16b. Deployed backend 05:15 UTC:
+**Flyway reported schema already at 49, no migration necessary** — Kusk24 had applied them to production
+before merging. `(healthy)`, public health `UP`.
+
+**Also answered:** PM colours come from the two PM boards' *subitems* — the **Status** column
+(`color_mm1dz8vz` on Cleaning, `status` on Delivery) bucketed by [[PmStatusBucket]] (Done→green, Working on
+it→amber, empty→grey, anything else→blue) and the **Plan** date column (`date`) for red = past and not
+Done, computed at query time. Service Tickets' "Sep 26" is `year: '2-digit'` on the month axis — the year,
+not a day; offered to show it only when the range spans years (not done).
+
+**Cost answer** for Sonnet 5 on the Solution column: 53 calls/day across the five sheets (17 Sep), ≈ $0.39/day
+vs ≈ $0.19 on Haiku — about **$6/month (~฿200) more**. Estimated from token counts; the backend does not
+log `usage`. Held MK tickets are summarised twice (MK + On Hold).
+
+### Files Modified
+- Frontend: [[CasePendingPanel]] (`scroll-quiet` Solution cell), `app/globals.css` (`.scroll-quiet`),
+  `lib/pm/params.ts` (`toQuery(filters, allCompanies)`, `includedCompanies` parse, `hasAnyFilter`),
+  `lib/pm/types.ts` (`includedCompanies`), `PmPlanningClient.tsx` (`companyNames`, `resolvedFilters`).
+- Backend: [[PmFilter]], [[PmPlanningService]] (`filtersCompanies`), [[PmPlanningController]] (`company=`),
+  [[application.properties]] (`server.max-http-request-header-size=16KB`), `PmFilterTest`.
+
+### Decisions Made
+- **Shorter list on the wire**, not a POST or a bigger limit alone — keeps URLs bookmarkable and the
+  exclusion model the UI already has.
+- **Include list drops rows with no company** — the reader asked for named chains.
+- **Derive, don't set state in an effect** — the lint rule was right and the derived form is simpler.
+
+### Unresolved / Next Steps
+- [ ] Service Tickets month axis: year only when the range crosses a year.
+- [ ] `raaspal-api-preview` still on `0.0.0.0:8081` (23 h) — stop it or rebind.
+- [ ] 13-vs-9 pending-case row question with the staff; Render check.
+- [ ] Log Anthropic `usage` per call if a real monthly figure is wanted.
+---

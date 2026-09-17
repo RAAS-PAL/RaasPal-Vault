@@ -41,7 +41,7 @@ An internal RAASPAL platform where the team uploads a customer survey form, AI e
 
 | Repo | HEAD | Tree | Deployed |
 |---|---|---|---|
-| [[RaasPal-Internal-Ops-backend]] | `a68d54c` on `main` — PR #10 merged 2026-09-14 (catalogue N+1 fix); #9 Cleaning + Makro sheets; #8 editable rows, Days exclusive | clean | ⚠️ **Lightsail runs an older build** — `bash deploy/deploy.sh` needed for row editing (PR #8) and the Cleaning/Makro sheets (PR #9). That build has been live behind `api.raaspal.com` since 2026-09-11 10:21 UTC — Flyway applied V39 on that start (`38 → 39`), container `(healthy)`, `/v3/api-docs` 200 through nginx+TLS. Case-report endpoints verified live 10:30 UTC with a real login: `sync/status` returned 61 tickets / 285 comments, `mk?refresh=true` returned 10 rows with Haiku-written Solution lines — so both `MONDAY_API_TOKEN` and `ANTHROPIC_API_KEY` are set (see [[history]] 2026-09-11b) |
+| [[RaasPal-Internal-Ops-backend]] | `7f978c0` on `main` — PM company filter as include list + 16 KB header limit (2026-09-17), on top of PR #3 RE KPI dashboard (`3749c70`, V45–V49) and the 16b–16e pending-case work | clean | ✅ **Lightsail runs `7f978c0`** — deployed 2026-09-17 05:15 UTC, `(healthy)`, `UP`; Flyway schema already at 49 |
 | [[robot-recommendation-web-raaspal]] | `6b5e43c` on `main` (remote `RAAS-PAL/RaasPal-Ops-frontend`) — PRs #13–#16 merged 2026-09-14 (scroll pagination + one-batch fix, 69 robot photos, Solutions tab-ids fix); #11/#12 Solutions hub, borderless layout, no fake search; #10 confirmation dialogs; PR #9 Cleaning + Makro tabs; PR #8 row editing/adding, Regenerate, full-width Reports page; PR #4 was the pending-case page, #6/#7 the PM planner | clean | ✅ **live at `ops.raaspal.com`** (Vercel). Its `/api/v1/*` proxy route needs `BACKEND_PROXY_TARGET=https://api.raaspal.com` in the Vercel env — it was missing on 2026-09-11 and every login 502'd with "Proxy could not reach http://localhost:8080" until set |
 | [[raaspal-rims]] | `44ed937` store-room statuses + packaging | clean | ❓ Vercel state not verified |
 
@@ -133,6 +133,8 @@ in the standalone `robot_inventory_temp` table ([[V30__add_robot_inventory_temp]
   and adds `packaging VARCHAR(16)` (`BOX | UNBOX`, nullable), deliberately **outside** the identity index.
 - **Pending:** its own `CLAUDE.md`; three uncommitted files predating the move.
 
+⚠️ **URL-length cliff (2026-09-17):** nginx request-line buffer 8 KB, Tomcat header limit now 16 KB. The PM company filter sends the shorter of `company=`/`excludeCompany=` for this reason; any new list-valued GET param must be designed with the same ceiling in mind.
+
 ### Hosting — 🚧 MIGRATING Render → AWS Lightsail
 
 Backend moving from Render to a **Lightsail 8 GB instance** (Singapore, US$44/mo, 2 vCPU / 160 GB / 5 TB),
@@ -146,6 +148,12 @@ Docker + Nginx + Let's Encrypt, Supabase retained as the database for now. Deplo
   tokens and logs out all staff. Render is the only place some production secret values currently exist.
 - ⚠️ **Parallel-run limits:** `DB_POOL_MAX=5` on Lightsail (Supabase caps at 15 total), and keep the schedulers
   **off** there — two instances hitting the delivery cron at the same minute could double-send customer emails.
+- ✅ **Preview stack (Kusk24, `deploy/preview/`)** — the only non-production database in the project: sidecar
+  Postgres + `raaspal-api:preview` on `127.0.0.1:8081`, schedulers off, reachable only via
+  `ssh -N -L 8081:127.0.0.1:8081`. Builds from the same checkout as production, so `git checkout main` after.
+  Seed with `temp/preview-seed.sql`; set `ANTHROPIC_API_KEY` (template says `TODO` → `MockAiService`);
+  `docker compose down` without `-v` keeps the seeded volume. Full runbook incl. the traps in [[history]]
+  2026-09-15e.
 - ⚠️ **Never set `server.forward-headers-strategy`** — `ForwardedHeaderFilter` strips `X-Forwarded-*`, which
   [[ClientIpResolver]] reads directly (rightmost). Nginx `$proxy_add_x_forwarded_for` is already correct.
 - **No data migration needed:** the DB is Supabase (shared) and Render's disk was ephemeral, which is exactly
@@ -238,6 +246,26 @@ Config `app.autoxing.api.*` (`AUTOXING_API_APP_ID/APP_SECRET/APP_CODE`, base-url
 (`count/date/duration(ms)/mileage(m)/robot`); report populates (robot returned 861 tasks in a 20-day test).
 Still needs the updated backend deployed to Render + `AUTOXING_API_BASE_URL` unset/global. See [[history]] session 2026-07-23.
 
+### PUDU Delivery Report — on-demand preview ⏸️ PAUSED (built 2026-09-15 on `feat/pudu-report`, both repos, pushed, NOT merged)
+
+New robot brand **PUDU** (delivery robots: BellaBot, KettyBot, PuduBot…) as an **on-demand report preview
+only**, the AutoXing shape — no persistence, no [[TelemetryAdapter]], no scheduler. Own package
+`telemetry/adapters/pudu/*`: [[PuduRequestSigner]] (**per-request HMAC-SHA1, no token endpoint** — the
+signed path keeps `/pudu-entry`, query values sign *decoded*; triple-checked against a Python port and
+PUDU's own helpers in `github.com/pudu-robotics/skills`), [[PuduApiClient]] (health check +
+`/data-board/v1/analysis/task/delivery/paging?group_by=robot&time_unit=day`, one row per robot per day
+carrying `sn`, paged at PUDU's cap of 20), [[PuduReportService]] (one robot by serial, ≤31 days, Bangkok
+day cut, previous period of equal length for comparison), [[PuduDeliveryReport]] (same shape/units as
+AutoXing's + `pudu{tableCount, trayCount, avgSpeedMps, previousPeriod}`). Endpoint
+`GET /api/v1/pudu/report/preview?sn=&from=&to=&shopId=&customerName=`; `GET …/status?check=true` runs
+PUDU's health check. Console: the **PUDU** brand in the Reports hub ([[PuduReportPanel]]) renders the
+shared [[DeliveryReportView]], which now takes a brand-neutral `DeliveryReportData`. Config
+`app.pudu.api.*` (`PUDU_API_APP_KEY/APP_SECRET`, base-url defaults to the **overseas node**
+`css-open-platform.pudutech.com/pudu-entry` — RAASPAL's portal is `css.pudutech.com`). **PAUSED — resuming 2026-09-16. The code lives on `feat/pudu-report` in both repos — backend `02d6887`, frontend `bdadb4a`, each now several commits behind `main`, so a rebase is needed before merging.** ⚠️ **2026-09-15: the credential a coworker supplied does NOT work** — it is a *Remote Control Open SDK* grant on the **old** platform (Device ID + Secret key, callback notifications only, MK group account, stores M477/M021/Y001). Tested against all four nodes: `Invalid API key`. The Cloud API needs a separate **ApiAppKey + ApiAppSecret** with the **Statistical data / data-board** functions; requested from `open.platform@pudutech.com`, to arrive by email at jerry.ho@raaspal.com. A durable copy of the verifier is at `D:\Work\SoftwareWorkSpace	emp\pudu_healthcheck.py`. Blocked on the
+ApiAppSecret, which the portal never displays — it is emailed to the application's mailbox on approval.
+Phase 2 (persist per-robot-per-day rows keyed `(sn, date)` in a new table, not `robot_task_reports`, then
+monthly email) after live verification. See [[history]] sessions 2026-09-14, 2026-09-15.
+
 ### Partner Middleware API (PCS) — ✅ (built, needs deploy + onboarding)
 
 A read-only, **OAuth-authenticated** surface (`/api/partner/v1`) so a distributor/service partner such as
@@ -321,6 +349,16 @@ only landed via manual sync.
 - Manual/backfill: `POST /api/v1/telemetry/sync-all?from=&to=`.
 
 Config `app.telemetry.sync-enabled|sync-cron|sync-zone|sync-lookback-days` (`TELEMETRY_SYNC_*`).
+⚠️ **Hard-won operational notes (2026-09-15d):** database lookups and writes are **chunked at 500** — an
+unchunked `IN` clause carrying one parameter per task stopped a 165-robot backfill dead at robot 24 with no
+error (PostgreSQL also caps bind parameters at 65,535). Hibernate **JDBC batching** is on (`batch_size=100`):
+the DB is in ap-southeast-2 while the API is in Singapore, so an unbatched row is a ~100ms round trip. A JDBC
+**`socketTimeout`** (300s) is the backstop — Hikari's `connection-timeout` covers acquiring a connection, not
+running a statement. **"Refresh reports already stored" is for repairing values after a mapping change, never
+for a backfill**: it rewrites every row (`0 saved, N updated` is the tell) and is what turned a few-minute job
+into hours. To diagnose a stalled run: `docker compose exec api kill -3 1`, then read the thread dump out of
+`docker compose logs` — the image is a JRE, so `jstack` is not available.
+
 **Go-live:** set the `GAUSIUM_API_*` keys → verify via `sync-all` → then `TELEMETRY_SYNC_ENABLED=true`.
 See [[history]] session 2026-07-25.
 
@@ -363,6 +401,22 @@ photos → `window.print()` renders the exact Thai paper form (`รายงา�
 - Frontend: [[CmReportPanel]], [[CmReportHistoryPanel]], [[CorrectiveMaintenanceReportView]], [[signature-image]].
 - **95 backend tests pass** (11 new). V27 verified applied against live Supabase; full API round-trip exercised
   with real Thai data. ⚠️ **Visual fidelity vs the paper form is still unverified** — see [[history]] 2026-08-05.
+
+### Per-brand Service-Ticket Analytics — AutoXing first — ✅ built 2026-09-16 (not deployed)
+
+Console page **Service Tickets** (`/tickets?brand=autoxing`) + a preview card on the Team Dashboard, fed by a
+brand-filtered monday read into the existing `case_ticket` / `case_ticket_update` tables (no migration).
+A brand is recognised by **Model Robot ∈ {Zara, Zara L300, Zara Bot L600, D150} OR item name contains
+Zara/D150** — configured in `app.tickets.brands[]`, so PUDU/Keenon are a config change. Package
+`casereport/brand/*`; API `GET /api/v1/tickets/{brand}/{summary,export}`, `GET /api/v1/tickets/{brand}?scope=open|all`,
+`POST …/sync`, `GET …/sync/status` (ADMIN / RAASPAL_TEAM). Sync runs after the 06:15 board snapshot
+([[CaseSyncCoordinator]]) and from the page's Refresh button; one API call via `items_page(query_params)`.
+KPIs: open now, this vs last month, median days to RE action, 7-day SLA %, 14-day repeat %, robots affected;
+charts: monthly stacked volume (Recharts), root cause, aging, top sites, repeat robots; ticket table with
+comment threads; **Export Excel** = Summary / Tickets / Comments workbook ([[BrandTicketExcelWriter]]).
+`is_present` on the filtered sync comes from the group (All Case = open), never from absence. Deep links need
+`TICKETS_MONDAY_WEB_URL`. ⚠️ Only 1 AutoXing ticket was created on the board on 2026-09-15 — the spike the
+RE team reported is not logged there. See [[history]] 2026-09-16.
 
 ### RE KPI Dashboard — three monday boards → live KPI page — 🚧 (built 2026-09-08 on `feat/re-kpi-dashboard`, V38–V41 pending on prod, not deployed)
 
@@ -433,6 +487,26 @@ that date, so the first month is clipped and every later month is a normal full 
 - The report header still reads the month name ("July 2026") — the customer knows their own start date.
 - Editing a robot evicts the report cache, or a corrected start date would keep serving the old report.
 - Set under **Tools → Robots** (register/edit form). 8 tests (suite **115**). See [[history]] 2026-08-19.
+### Contract End Date + "Robots with no data" — ✅ built 2026-09-15 on `feat/contract-end-and-zero-data` (both repos)
+
+`deployments.contract_end_date` (**V41**, nullable) is the mirror of the start date, same per-deployment
+grain. Reports clip both ends ([[ReportPreviewService]] `clipToContract`, end inclusive in Bangkok time);
+`ReportPeriod.coversContract(start, end)` is the single "does this robot belong on this month" test, and
+[[CustomerReportBundleService]] uses it so a robot whose contract ended before a month is **not sent and
+not listed** for it (the final partial month still goes, clipped). End before start is refused. Set under
+Tools → Robots. **Robots with no data:** [[ZeroDataRobotService]] lists, on request, every in-contract
+active deployment with zero task rows for a month, with the date each robot last logged anything ever
+("never synced" vs "went quiet"); `GET /api/v1/telemetry/zero-data?month=`; console Reports → Gausium →
+**No data** tab ([[ZeroDataPanel]]). Not stored at sync time on purpose. See [[history]] 2026-09-15b.
+**Extended 2026-09-15c into the CS team's monthly worklist:** three-way reason (`SYNC_FAILING` / `NEVER_SYNCED` /
+`NO_TASKS`) from per-robot sync outcome now recorded by [[TelemetrySyncService]] (**V43**); follow-up status /
+outcome / note per robot-month (**V42** `zero_data_followups`); Exclude-from-report and Re-sync actions on the
+row. **Contract expiry:** [[ContractExpiryService]] + **Contracts** tab ([[ContractsPanel]]); Tools → Robots badges
+"Contract ended" / "ends in N days"; [[OpsAlertScheduler]] emails CS at 08:00 Bangkok — each contract once as it
+enters the 30-day window (**V44** stamp, re-armed on date change) and last month's zero-data list on the 3rd.
+Config `app.alerts.*` (`OPS_ALERTS_ENABLED`, `OPS_ALERTS_CS_EMAIL`); off by default. Backend `main` has the first
+commit of this branch (`12f3eee`); the rest is on the branch, unmerged, pending the Vercel preview check.
+
 ### Per-Company Report Review + Per-Robot Exclusions — ✅ (deployed 2026-08-20)
 
 **Reports → Company report** ([[CustomerBundlePanel]], `?tab=company`): pick a company and month, see every
@@ -616,8 +690,8 @@ task is narrow enough that the default would be overkill — changing the env va
   actually being changed — because the picker used to post back the image endpoint's URL instead of the image.
   Worth confirming on Vercel before telling the warehouse the feature is available
 - [x] **Weekly performance report (preview only) — BUILT 2026-08-31.** [[ReportPeriod]] + `buildForWeek`, `week=YYYY-Www` on `/api/v1/reports/preview`, Monthly/Weekly toggle in [[ReportPreviewPanel]]. No migration. 134 tests pass; `npm run build` clean (see session 2026-08-31)
-- [x] **Daily Pending Case Report — MK sheet BUILT 2026-09-11, merged to `main` in PR #6.** V38 applied. Reports → Pending cases → MK pending generates the `Raw_Delivery` layout from the live delivery board; SLA 3 days in the six greater-Bangkok provinces / 5 elsewhere, Days inclusive. Reports freeze on first generation and a past date with no frozen run is **refused**, not fabricated. **Solution column is written by Haiku from the comment thread** ([[CaseSolutionAiService]]); a typed board value wins. 200 tests pass (see sessions 2026-09-11 and 2026-09-11b)
-- [x] **Cleaning and Makro sheets BUILT 2026-09-13** (PR #9 both repos). Cleaning = every open cleaning-board case except Makro and the airports; Makro = Makro only; SLA 3 days everywhere. Tabs beside MK pending. Expect Cleaning to be far larger than the team's 2-row sheet until the waiting-for-quotation / Sup-Status-Done question is settled (see session 2026-09-13b). Still unbuilt: รอ QT รายการซ่อม, RAW_AOTGA, Excel export.
+- [x] **Daily Pending Case Report — MK sheet BUILT 2026-09-11, merged to `main` in PR #6.** V38 applied. Reports → Pending cases → MK pending generates the `Raw_Delivery` layout from the live delivery board; SLA 3 days in the six greater-Bangkok provinces / 5 elsewhere, Days inclusive. Reports freeze on first generation and a past date with no frozen run is **refused**, not fabricated. **Solution column is written by Sonnet 5 from the comment thread** ([[CaseSolutionAiService]]; Haiku until 2026-09-16b); a typed board value wins. 200 tests pass (see sessions 2026-09-11 and 2026-09-11b)
+- [x] **Cleaning and Makro sheets BUILT 2026-09-13** (PR #9 both repos). Cleaning = every open cleaning-board case except Makro and the airports; Makro = Makro only; SLA 3 days everywhere. Tabs beside MK pending. Expect Cleaning to be far larger than the team's 2-row sheet until the waiting-for-quotation / Sup-Status-Done question is settled (see session 2026-09-13b). Still unbuilt: รอ QT รายการซ่อม, Excel export. RAW_AOTGA built 2026-09-14 (below).
 - [ ] **PR #6 review follow-ups** (not blocking): Haiku calls run inside `CaseReportRunService.rowsFor`'s transaction; two concurrent first generations race on `uq_case_report_run_day`; `DELETE /mk/run` can discard an unrecoverable past draft. Listed on the PR.
 - [x] **Daily case-report scheduler ON since 2026-09-11 ~10:40 UTC** — `CASE_REPORT_SYNC_ENABLED=true` in Lightsail's `deploy/api.env`, container recreated and the value confirmed inside it. Fires 06:15 Bangkok: snapshot both boards, then freeze the day's MK report. Nothing before 2026-09-11 exists. **First unattended run is 2026-09-12 06:15 — verify it** with `docker compose logs --since 24h | grep -E "Daily case sync|Froze the MK_PENDING"` or `GET /mk/run?asOf=2026-09-12` (`exists:true`). Render never had this property, so there is no second instance to double-run it.
 - [x] **Case report deployed 2026-09-11** — `main` (`cf04b84`) on Lightsail, V39 applied, app healthy. Never deploy a `main` older than `faa74a9` — it lacked V38 and crash-loops against prod. Local testing uses MODE B in the console's `.env.local`.
@@ -625,7 +699,9 @@ task is narrow enough that the default would be overkill — changing the env va
 - [x] **Pending cases tab is on the live console** — `feat/dailycasereport-page` was merged into the console's `main` as PR #4 (an earlier vault note saying it was unmerged was wrong). The branch's job is done; work from `main` now.
 - [ ] ⚠️ **PM "Sync from monday" hung on the live box 2026-09-11** — run `99c1fbfc…` for board 2048972900 sat `RUNNING` 5+ min with nothing read; the boards themselves are fine (331/272 parents, 2,774/1,578 subitems, parent links present — checked read-only from a local script). Cause: [[MondayApiClient]] is built with `RestClient.builder().build()` and has **no connect/read timeout**, so a stalled monday response blocks the request thread forever and the in-memory `running` flag refuses every later sync. Fix planned: timeouts on the client (shared by the 06:15 case sync); for the coworker: mark stale `RUNNING` rows FAILED on startup, run the sync off the request thread. Workaround: `PM_MONDAY_PAGE_SIZE=100` + `docker compose up -d`, then re-sync.
 - [ ] The Docker healthcheck hits `/actuator/health` every 30 s and gets 401, logging a WARN each time (~2,900 lines/day, capped by the json-file driver). Permit `/actuator/health` in [[SecurityConfig]] to quiet it.
-- [ ] **Case report Excel export** not built (`poi-ooxml` already in `pom.xml`); AOT and ALL_PENDING generators not built. AOTGA has no SLA column and needs AI over comment threads — do it last.
+- [x] **AOTGA sheet BUILT 2026-09-14 on `feat/aotga-report` (both repos), not merged, not committed.** RAW_AOTGA is a *spare-part turnaround* sheet, not an SLA sheet: Required Part / Waiting / Waiting From / Part Received / Aging After Received, no Solution, RE On Site or SLA. **The four parts cells are written by Haiku from the comment thread** ([[PartsLineWriter]] / [[CasePartsAiService]]; a typed board value wins, but the board's parts columns are empty on every airport ticket — counted 2026-09-14). All Case group only. Days exclusive like the other sheets. Own [[AotgaReportGenerator]]; shared [[AirportTickets]] predicate (name-matching for AOTGA only — a name-only prefix lands on both sheets by design). No migration. Prompt not yet tuned against a live generation (see session 2026-09-14b). Edit dialog does not yet offer the parts fields.
+- [x] **On Hold and Delivery pending sheets BUILT + DEPLOYED 2026-09-16** (session 2026-09-16b). On Hold = every held case on both boards except the airports', one table, Board column, All/Cleaning/Delivery filter; the only two-board sheet, built by joining each generator's `Scope.ON_HOLD` in [[OnHoldReportGenerator]] — no shared column map. Delivery = every non-MK delivery customer under MK's 3/5-day rule. **Cleaning, Makro and Delivery no longer show held cases; MK still does, by request** (a held MK case is on two sheets). Slugs `delivery`, `on-hold`; definitions self-seed on boot, so deploy backend before frontend. Held = [[SlaCalculator]] verdict, decided after the SLA, not in `belongsTo`. **Solution cell layout (16c): one dated entry per line, put in by [[SolutionLine]]`.oneEntryPerLine` in code, not asked of the model; a silent ticket gets `DD-Mon อยู่ระหว่างตรวจสอบและประเมินอาการหุ่นยนต์` dated the open date, never a blank cell. Verified against the staff's 16 Sep sheet — content was already near-verbatim.** **Generation (16d): model calls run 6 at a time (`CASE_REPORT_SOLUTION_CONCURRENCY`); a second request for the same sheet+date joins the running one. Console query `retry: false`, 300s. A past date can never be regenerated — only edited.** **Rows (16e): any row can be removed — a board row is kept hidden (`removed=true`, No 0), survives regeneration hidden, and can be restored (`POST …/rows/{id}/restore`); a hand-added row is deleted. The rows endpoint returns removed rows; the Excel does not.**
+- [ ] **Case report Excel export** not built (`poi-ooxml` already in `pom.xml`); ALL_PENDING generator not built.
 - [ ] **Weekly *sending* is not built** — needs a period-aware [[ReportLink]] (`report_month` is `VARCHAR(7)`; widen it or add a period column — **V39 or later**, V38 is taken), then email + the public token page. The `WEEKLY` cadence on `deployments` (V16) is still inert, and the customer bundle is still monthly-only
 - [ ] **Backfill contract start dates per robot** under Tools → Robots — **1 of 163 deployed robots done as of 2026-08-20**. Until a robot has a date it reports whole months, so mid-month starts are still over-reported
 - [ ] ⏰ **BEFORE 2026-09-02 — rename two report labels** (decided 2026-08-19, deliberately deferred so July reports match what customers already received). `report.totalTasksCompleted` → "Total Tasks Run", `report.taskCompletionRate` → "Area Completion Rate", in `messages/en.json` + `messages/th.json`. **Frontend i18n only** — the backend `Ring("Task Completion Rate")` string is an internal key mapped by `RING_KEYS`. August reports send 08:00 on 2 Sep (`0 0 8 2 * *`), so it must land before then. See [[history]] 2026-08-19c
