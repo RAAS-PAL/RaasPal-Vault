@@ -1,6 +1,7 @@
 # RAASPAL — Project Index
 
-> Read this file first to understand the current project state before starting any task.
+> **Read [[now]] first** — it is ~100 lines and covers the current state. This file is the full
+> reference; open the section you need rather than reading it end to end.
 > For change history and decisions, see [[history]].
 >
 > **This vault has one branch, `main`, shared by every developer.** `git pull` before you start
@@ -32,37 +33,40 @@ An internal RAASPAL platform where the team uploads a customer survey form, AI e
 
 ## Current Status
 
-### Deployment Snapshot — verified 2026-08-31
+### Deployment Snapshot — verified 2026-09-17
 
-> Measured on 2026-08-31 against the live Render API and the three working trees, not
-> transcribed from memory. Everything here can drift the moment someone deploys, so
-> re-check rather than trust it. The sections below this one describe features and
-> decisions; this one describes *what is actually running*.
+> **The short version of this section now lives in [[now]], which is the file to read first.**
+> Kept here for the detail. Measured on 2026-09-17 against the working trees; the *deployed*
+> column has not been re-verified since 2026-08-31, so treat it as the older measurement.
+> The sections below this one describe features and decisions; this one describes
+> *what is actually running*.
 
 | Repo | HEAD | Tree | Deployed |
 |---|---|---|---|
-| [[RaasPal-Internal-Ops-backend]] | `7f978c0` on `main` — PM company filter as include list + 16 KB header limit (2026-09-17), on top of PR #3 RE KPI dashboard (`3749c70`, V45–V49) and the 16b–16e pending-case work | clean | ✅ **Lightsail runs `7f978c0`** — deployed 2026-09-17 05:15 UTC, `(healthy)`, `UP`; Flyway schema already at 49 |
-| [[robot-recommendation-web-raaspal]] | `6b5e43c` on `main` (remote `RAAS-PAL/RaasPal-Ops-frontend`) — PRs #13–#16 merged 2026-09-14 (scroll pagination + one-batch fix, 69 robot photos, Solutions tab-ids fix); #11/#12 Solutions hub, borderless layout, no fake search; #10 confirmation dialogs; PR #9 Cleaning + Makro tabs; PR #8 row editing/adding, Regenerate, full-width Reports page; PR #4 was the pending-case page, #6/#7 the PM planner | clean | ✅ **live at `ops.raaspal.com`** (Vercel). Its `/api/v1/*` proxy route needs `BACKEND_PROXY_TARGET=https://api.raaspal.com` in the Vercel env — it was missing on 2026-09-11 and every login 502'd with "Proxy could not reach http://localhost:8080" until set |
-| [[raaspal-rims]] | `44ed937` store-room statuses + packaging | clean | ❓ Vercel state not verified |
+| [[RaasPal-Internal-Ops-backend]] | `7f978c0` on `main` — **PR #3 merged 2026-09-17 04:36Z** (`3749c70`), landing the RE KPI dashboard and the PM 52-week planner. Before it: PR #10 2026-09-14 (catalogue N+1 fix), #9 Cleaning + Makro sheets, #8 editable rows | clean, verified 2026-09-17 | ⚠️ **Lightsail runs an older build, and is now well behind** — as of 2026-09-14 it lacked PR #8/#9; PR #3 has since added the whole KPI/PM surface. `bash deploy/deploy.sh` to catch up. The live build has been behind `api.raaspal.com` since 2026-09-11 10:21 UTC — Flyway applied V39 on that start (`38 → 39`), container `(healthy)`, `/v3/api-docs` 200 through nginx+TLS. Case-report endpoints verified live 10:30 UTC with a real login: `sync/status` returned 61 tickets / 285 comments, `mk?refresh=true` returned 10 rows with Haiku-written Solution lines — so both `MONDAY_API_TOKEN` and `ANTHROPIC_API_KEY` are set (see [[history]] 2026-09-11b) |
+| [[RaasPal-Ops-frontend]] | `9011d22` on `main` (remote `RAAS-PAL/RaasPal-Ops-frontend`) — **PR #3 merged 2026-09-17 04:36Z** (`e070683`). Before it: PRs #13–#16 2026-09-14 (scroll pagination + one-batch fix, 69 robot photos, Solutions tab-ids fix); #11/#12 Solutions hub, borderless layout, no fake search; #10 confirmation dialogs; #9 Cleaning + Makro tabs; #8 row editing/adding, Regenerate, full-width Reports page; #4 the pending-case page, #6/#7 the PM planner | clean, verified 2026-09-17 | ✅ **live at `ops.raaspal.com`** (Vercel). Its `/api/v1/*` proxy route needs `BACKEND_PROXY_TARGET=https://api.raaspal.com` in the Vercel env — it was missing on 2026-09-11 and every login 502'd with "Proxy could not reach http://localhost:8080" until set |
+| [[RaasPal-RIMS]] | `44ed937` store-room statuses + packaging (2026-08-31) | not checked 2026-09-17 | ❓ Vercel state not verified |
+
+> **On the PR numbers.** PR #3 is numbered lower than the #8–#16 that merged before it because
+> `feat/re-kpi-dashboard` was opened on 2026-09-08 and sat open for nine days. It left a merge
+> commit in both repos; #8–#16 were squash-merged and left none. Both sets are real — verified
+> 2026-09-17 from `git log --merges` against `git@github.com:RAAS-PAL/…`.
 
 **Live data facts** (Supabase — one database, shared by local development and production):
 
-- Highest applied migration is **V38 = case-report tables** (`V38__add_case_report_tables.sql`, the full
-  parked V34 design: `case_ticket`, `case_ticket_update`, `case_ticket_status_history`, `case_ticket_override`,
-  `case_report_definition`, `case_report_recipient`, `case_branch_alias`, `case_robot_location`,
-  `case_report_run`). **Applied to production 2026-09-11.**
-- ⚠️ **V38 collision, resolved 2026-09-11 — read this before touching `feat/re-kpi-dashboard`.** That
-  branch's `V38__add_case_ticket_sync.sql` also creates `case_ticket`. It was written against a vault copy
-  that had not been pulled, and the case-report V38 reached production first. **Decision: production keeps
-  the case-report V38; the KPI branch reworks after the case-report merge lands.** Concretely, on that
-  branch: (1) its V38 becomes `ALTER TABLE case_ticket ADD COLUMN` for the columns the case-report table
-  lacks — `service_line`, `ticket_no`, `issue_level`, `close_date`, `is_closed`, `serials_normalised` — plus
-  `CREATE TABLE case_ticket_sync_run`, numbered **V40** (V39 went to the PM planner in PR #5); (2) its
-  V39–V41 become **V41–V43**; (3) its local Docker DB is rebuilt. ⛔ Until then, **do not start that branch's backend against production** — Flyway will see prod's
-  v38 is "add case report tables", not "add case ticket sync", and refuse to start. Two overlapping date
-  columns need one owner: case-report `re_action_date` vs KPI `action_date`.
-- **V39 is taken — `V39__add_pm_planning_tables.sql` (PM 52-week planner), on `main` since PR #5/#6, applies on
-  the next deploy. Next free migration: V40.** Coordinate — the KPI rework will claim V40–V43.
+- **Applied to production: V39.** Lightsail applied it on the 2026-09-11 start (`38 → 39`).
+  **`main` now ships migrations to V49**, so the next deploy applies **V40–V49** in one go —
+  ten migrations, including the whole KPI and CSAT surface. Review before deploying.
+- **The V38 collision is resolved, but not by the plan recorded here on 2026-09-11.** That plan
+  had `feat/re-kpi-dashboard`'s `add_case_ticket_sync` renumbered to V40 and its V39–V41 to
+  V41–V43. What actually shipped in PR #3 is **V45–V49**: `V45__add_case_ticket_sync.sql`,
+  `V46__add_ticket_type_and_action_dates.sql`, `V47__allow_unclassified_service_line.sql`,
+  `V48__add_case_ticket_category.sql`, `V49__add_csat_workbook_uploads.sql` — because V40–V44 were
+  taken by other work on `main` in the meantime. Production's V38 stayed the case-report one
+  throughout, as decided. **Next free migration: V50.**
+- Flyway 10 also refuses **out-of-order** migrations, which is what makes the local Docker
+  databases on `localhost:5433` bite: `pm_verify` is at V42 and `kpi_local` is stale, so a fresh
+  sync wants a **throwaway database** rather than a migration of an existing one — see [[now]].
 - `robot_inventory_temp` holds 92 rows — `IN_STOCK=45`, `DEMO=47`.
 - **`UNDER_REPAIR` and `RETURNED_FROM_CUSTOMER` are live but unused.** The states work end to end;
   nobody has set one yet, so the catalogue currently renders two bands rather than four.

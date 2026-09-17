@@ -7,24 +7,32 @@ Open this folder as a vault in [Obsidian](https://obsidian.md) so the `[[wiki-li
 and the graph view works. It reads fine as plain Markdown in any editor or on GitHub, just
 without the links.
 
-## The two files
+## The three files
 
 | File | What it is | When to read it |
 |---|---|---|
-| [index.md](index.md) | Current state — services, hosting, schema, what is built and what is not | **Start here.** Before doing anything else |
-| [history.md](history.md) | Append-only session log: what changed, why, and what broke | When you need the reasoning behind a decision, or the history of a component |
+| [now.md](now.md) | ~100 lines: current HEADs, live migration version, local databases, active feature, open items, traps | **Start here, every time.** It is deliberately small enough to read at the start of every session |
+| [index.md](index.md) | Current state in full — services, hosting, schema, what is built and what is not | When `now.md` is not enough. 600+ lines; read the section you need |
+| [history.md](history.md) | Append-only session log: what changed, why, and what broke | When you need the reasoning behind a decision, or the history of a component. 2,800+ lines — grep it, do not read it whole |
 
-`index.md` opens with a **Deployment Snapshot** giving each repo's HEAD and what is verified live.
-It carries the date it was measured — treat anything older than a few days as a hint, not a fact,
-and re-check before relying on it.
+`now.md` exists because the other two grew past the point where reading them was cheap. Anything
+in `now.md` that becomes false should be corrected there **as it happens**, not at the end of a
+session. The automation that points agents at this file lives in the workspace root `CLAUDE.md`.
+
+Both `now.md` and `index.md`'s **Deployment Snapshot** give each repo's HEAD and what is verified
+live, each carrying the date it was measured — treat anything older than a few days as a hint, not
+a fact, and re-check before relying on it.
 
 ## The repositories this describes
 
 The vault does not contain code. Three separate repositories do:
 
-- `robot-recommendation-api` — Spring Boot 3.4.5 / Java 21 backend
-- `robot-recommendation-web-raaspal` — Next.js console frontend
-- `raaspal-rims` — Next.js inventory frontend (RIMS)
+- `RaasPal-Internal-Ops-backend` — Spring Boot 3.4.5 / Java 21 backend (was `robot-recommendation-api`)
+- `RaasPal-Ops-frontend` — Next.js ops console frontend (was `robot-recommendation-web-raaspal`)
+- `RaasPal-RIMS` — Next.js inventory frontend (was `raaspal-rims`)
+
+The folders were renamed after most of this vault was written, so older entries in
+[history.md](history.md) use the old names. They refer to the same three repositories.
 
 The workspace root that holds all three is deliberately **not** a git repository.
 

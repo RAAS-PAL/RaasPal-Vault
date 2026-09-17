@@ -3170,6 +3170,103 @@ window focus (15-minute staleTime), which is what made the wait happen twice.
 - [ ] `robot_display_specs` (69 rows) is written but no screen reads it. Delivery/equipment/mowing have no matrix — their own vocabulary (tray load, layers, cutting width) rather than cleaning's 101 columns.
 - [ ] Two robots share one photo where the sheet anchored one image across two columns (Aventurier SE/Pro, LUBA 3000/5000).
 ---
+
+## 2026-09-17 — PM planner and KPI dashboard merge to main; the vault gets a cheap entry point
+
+### PR #3 merged, both repos
+Merged 04:36Z — backend `3749c70`, frontend `e070683`. The RE KPI dashboard and the PM 52-week
+planner landed on `main` together. Backend pulled 92 commits to `7f978c0`, frontend 113 to
+`9011d22`. Three commits landed on top of the merge, all refinements of things this branch
+introduced: the PM company filter became an *include* list as well as an exclude list, the
+frontend now sends whichever of the two lists is shorter (a request-header size limit — a long
+exclude list overflowed it), and the CSAT uploader gained an empty state.
+
+Migrations renumbered in the merge: PM planning shipped as **V39**, not the V42 the plan proposed,
+and `main` now runs to **V49**.
+
+### PM status labels — a wrong correction, corrected
+Asked where the planner's colours come from, the chain is: monday subitem status label →
+`PmStatusBucket.fromRaw` at sync time → `effectiveBucket` overlays `OVERDUE` at query time →
+`dominant()` picks most-urgent-wins for a multi-visit cell → Tailwind class in `lib/pm/status.ts`.
+
+Looking at the Cleaning board the user saw only three labels (Planning / Done / Working on it) and
+asked where `Waiting on approval` and `On Hold` came from. **I said they were probably not real and
+that the test comment calling them "Delivery-only" was wrong. That was itself wrong.** A read-only
+query against `pm_verify` proved both labels exist and are Delivery-only — 44 rows and 1 row. The
+reason only three were visible is that Cleaning's label set genuinely *is* those three.
+
+Recorded because the failure mode is worth remembering: doubting a correct test on the strength of
+one board's UI, rather than querying the data that was already sitting in a local database.
+
+### Real status distribution (`pm_verify`, 4,352 visits, synced 2026-09-11)
+
+| Board | Label | Bucket | Count |
+|---|---|---|---|
+| Cleaning `2444194682` | Planning | PLANNED | 2,011 |
+| | Done | COMPLETED | 671 |
+| | Working on it | IN_PROGRESS | 92 |
+| Delivery `4152679385` | *(empty)* | UNPLANNED | 1,080 |
+| | Done | COMPLETED | 371 |
+| | Planning | PLANNED | 82 |
+| | Waiting on approval | PLANNED | 44 |
+| | On Hold | PLANNED | 1 |
+
+**68% of PM Delivery visits carry no status at all**, against zero blanks on Cleaning. That
+asymmetry is the entire grey/UNPLANNED population on the planner, and it is a monday data problem,
+not a code one. The six defensive vocabulary entries in `fromRaw` (`Completed`, `Complete`,
+`In progress`, and the three Thai spellings) match **zero** rows — dead but harmless.
+
+Company derivation checked at the same time: 603 contracts → 149 distinct companies, no nulls; 26%
+of names took the colon path and 74% the first-word path; **93 of the 149 companies have exactly one
+site**, so roughly 60% of the company filter is not a real chain.
+
+### The vault gets `now.md`, and something that points at it
+The vault had grown to the point where using it cost more than ignoring it: `index.md` at 626 lines
+and `history.md` at 2,825 are together ~56k tokens, so no agent was going to read them at session
+start — and nothing in any repo pointed at the vault anyway. The backend had neither a `CLAUDE.md`
+nor an `AGENTS.md`; the frontend's `CLAUDE.md` is a single `@AGENTS.md` line.
+
+Added **[[now]]** — ~100 lines holding only what a session needs before touching anything: current
+HEADs, the live migration version, the local databases and their schema versions, the active
+feature, open items, and the traps that have already cost time. Added a workspace-root `CLAUDE.md`
+that instructs agents to read `now.md` first, *not* to read `index.md` or `history.md` by default,
+and to update `now.md` in place as facts change rather than at the end of a session.
+
+Also corrected here: the repo folders were renamed some time ago and the vault still used the old
+names throughout. `README.md` and the Deployment Snapshot now use the current names and record the
+mapping, since older entries in this log still say `robot-recommendation-api`.
+
+### Unresolved / Next Steps
+- [ ] **Rotate the monday API token** — a live `me:write` JWT leaked into an agent transcript via an
+      IDE selection. Rotation status unknown.
+- [ ] Re-sync PM from monday against a throwaway database to refresh the numbers above; blocked on
+      `MONDAY_API_TOKEN` not being available outside the running JVM.
+- [ ] `kpi_local` needs rebuilding before the current backend will boot against it.
+- [ ] Merged local `feat/re-kpi-dashboard` branches still exist in both repos.
+- [ ] Fix at source in monday: the 1,080 status-less Delivery visits, 49% of Delivery contracts
+      with no province, ~1,330 Cleaning visits with no plan date.
+
+### Merging this entry surfaced a superseded plan (same day)
+Writing the above meant merging twelve upstream vault commits that had not been pulled first —
+the Lightsail deploy, the case-report work, and PRs #8–#16. `history.md` auto-merged; `index.md`
+conflicted on the Deployment Snapshot, and **both sides were kept**: upstream's deploy detail and
+V38-collision history, which had been verified live and which this session had no evidence
+against, plus the HEADs and migration state verified today.
+
+Two things the merge corrected:
+
+- **The V38 collision resolution recorded on 2026-09-11 is not what shipped.** That entry planned
+  for `feat/re-kpi-dashboard`'s `add_case_ticket_sync` to be renumbered **V40** and its V39–V41 to
+  become V41–V43. PR #3 actually shipped it as **V45–V49**, because V40–V44 were taken by other
+  work on `main` in the nine days the branch stayed open. The decision itself held — production's
+  V38 is still the case-report one. Next free migration is **V50**.
+- **Production is at V39; `main` ships to V49.** The next backend deploy applies ten migrations at
+  once. Lightsail's live build dates from 2026-09-11 and predates PR #8, #9 and #3.
+
+Also worth recording because it looked like a contradiction and was not: **PR #3 is numbered lower
+than the #8–#16 that merged before it** because the branch was opened on 2026-09-08 and sat open
+for nine days. It left a merge commit in both repos; #8–#16 were squash-merged and left none.
+
 ---
 ## Session: 2026-09-14b — Frozen PM header, brand tabs, email to Tools, uniform robot photos
 
