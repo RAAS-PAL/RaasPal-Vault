@@ -1,6 +1,7 @@
 # RAASPAL — Project Index
 
-> Read this file first to understand the current project state before starting any task.
+> **Read [[now]] first** — it is ~100 lines and covers the current state. This file is the full
+> reference; open the section you need rather than reading it end to end.
 > For change history and decisions, see [[history]].
 >
 > **This vault has one branch, `main`, shared by every developer.** `git pull` before you start
@@ -32,26 +33,32 @@ An internal RAASPAL platform where the team uploads a customer survey form, AI e
 
 ## Current Status
 
-### Deployment Snapshot — verified 2026-08-31
+### Deployment Snapshot — verified 2026-09-17
 
-> Measured on 2026-08-31 against the live Render API and the three working trees, not
-> transcribed from memory. Everything here can drift the moment someone deploys, so
-> re-check rather than trust it. The sections below this one describe features and
-> decisions; this one describes *what is actually running*.
+> **The short version of this section now lives in [[now]], which is the file to read first.**
+> Kept here for the detail. Measured on 2026-09-17 against the working trees; the *deployed*
+> column has not been re-verified since 2026-08-31, so treat it as the older measurement.
+> The sections below this one describe features and decisions; this one describes
+> *what is actually running*.
 
 | Repo | HEAD | Tree | Deployed |
 |---|---|---|---|
-| [[robot-recommendation-api]] | `06e1935` weekly report period | clean | ✅ **live on Render** — verified: `?week=` is parsed and `packaging` is returned |
-| [[robot-recommendation-web-raaspal]] | `888a621` CM report one-page fit | clean | ❓ Vercel state not verified |
-| [[raaspal-rims]] | `44ed937` store-room statuses + packaging | clean | ❓ Vercel state not verified |
+| [[RaasPal-Internal-Ops-backend]] | `7f978c0` PM company include list + header limit | clean, on `main` | ❓ not re-verified since 2026-08-31 |
+| [[RaasPal-Ops-frontend]] | `9011d22` ticket-chart month labels | clean, on `main` | ❓ Vercel state not verified |
+| [[RaasPal-RIMS]] | `44ed937` store-room statuses + packaging (2026-08-31) | not checked | ❓ Vercel state not verified |
+
+**PR #3 merged in both repos on 2026-09-17 04:36Z** (backend `3749c70`, frontend `e070683`),
+landing the RE KPI dashboard and the PM 52-week planner on `main` together.
 
 **Live data facts** (Supabase — one database, shared by local development and production):
 
-- Highest applied migration is **V37**. **V38 (`case_ticket` + `case_ticket_sync_run`) exists on the
-  backend branch `feat/re-kpi-dashboard` and is NOT yet applied** — it is additive, but it will apply to
-  production the first time anyone starts the backend on that branch. `V34__add_case_report_tables.sql.txt`
-  stays parked with a `.txt` suffix; its `case_ticket` table is what V38 creates, so the rest of it must be
-  renumbered **V39 or later** and rewritten as an ALTER/additions when that feature resumes.
+- **`main` now ships migrations up to V49** (`V49__add_csat_workbook_uploads.sql`). The
+  KPI/PM work that was pending on `feat/re-kpi-dashboard` as V38–V41 has merged and renumbered;
+  the PM planning tables shipped as **V39**, not the V42 the plan proposed.
+  `V34__add_case_report_tables.sql.txt` stays parked with a `.txt` suffix.
+- Flyway 10 refuses **out-of-order** migrations. The local Docker Postgres databases on
+  `localhost:5433` are behind (`pm_verify` at V42, `kpi_local` stale), so a fresh sync wants a
+  **throwaway database** rather than a migration of an existing one — see [[now]].
 - `robot_inventory_temp` holds 92 rows — `IN_STOCK=45`, `DEMO=47`.
 - **`UNDER_REPAIR` and `RETURNED_FROM_CUSTOMER` are live but unused.** The states work end to end;
   nobody has set one yet, so the catalogue currently renders two bands rather than four.
