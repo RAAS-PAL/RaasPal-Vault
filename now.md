@@ -1,6 +1,7 @@
 # NOW — current state, read this first
 
-> **Verified 2026-09-17.** This file exists to be *cheap*: it is the one vault file an agent
+> **Sections carry their own verified dates; most of this was checked 2026-09-17.**
+> This file exists to be *cheap*: it is the one vault file an agent
 > should read at the start of every session. [[index]] (626 lines) and [[history]] (2800+)
 > are reference material — open them when you need the reasoning behind something, not by default.
 >
@@ -104,3 +105,23 @@ Four monday boards, ids in `application.properties` under `app.pm.monday.*`:
 - **This vault has one branch, `main`.** Pull before writing, commit, pull again, then push.
 - Parallel shell calls that each start with `cd` clobber one another — use `git -C <repo>` instead.
 - zsh does not word-split unquoted variables, and *does* glob an unquoted `--include=*.java`. Quote it.
+
+---
+
+## Editing this file without fighting everyone else
+
+`now.md` is **edited in place**, which is the shape git merges worst — unlike [[history]], which is
+append-only and merges itself. Two people correcting the same fact on the same day *will* conflict.
+Keeping that cheap:
+
+- **One fact per line. Do not reflow or re-wrap** a paragraph you did not change — a reflowed
+  paragraph is a conflict on every line of it, instead of one line.
+- **Do not reorder sections.** New facts go at the end of the section they belong to.
+- **Leave the section headings alone.** They are the anchors git aligns on.
+- On a conflict, **keep the value that was actually verified**, not the newer commit, and put how
+  it was verified in the line. If both were verified, the later measurement wins.
+- If a fact needs a paragraph of reasoning, it does not belong here — put the reasoning in
+  [[history]] with a date, and leave one line here pointing at it.
+
+**Verified dates are per-section, not global.** Update the date on the section you touched; do not
+re-date the file because you corrected one line in it.
