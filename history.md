@@ -2823,3 +2823,78 @@ has room; the same headroom fix as the site's panels.
   reads 83.3% and the warnings box is gone.
 - [ ] Optional, RE team's call: Q5 is literally "overall satisfaction"; textbook CSAT would use it alone.
 ---
+
+## 2026-09-17 — PM planner and KPI dashboard merge to main; the vault gets a cheap entry point
+
+### PR #3 merged, both repos
+Merged 04:36Z — backend `3749c70`, frontend `e070683`. The RE KPI dashboard and the PM 52-week
+planner landed on `main` together. Backend pulled 92 commits to `7f978c0`, frontend 113 to
+`9011d22`. Three commits landed on top of the merge, all refinements of things this branch
+introduced: the PM company filter became an *include* list as well as an exclude list, the
+frontend now sends whichever of the two lists is shorter (a request-header size limit — a long
+exclude list overflowed it), and the CSAT uploader gained an empty state.
+
+Migrations renumbered in the merge: PM planning shipped as **V39**, not the V42 the plan proposed,
+and `main` now runs to **V49**.
+
+### PM status labels — a wrong correction, corrected
+Asked where the planner's colours come from, the chain is: monday subitem status label →
+`PmStatusBucket.fromRaw` at sync time → `effectiveBucket` overlays `OVERDUE` at query time →
+`dominant()` picks most-urgent-wins for a multi-visit cell → Tailwind class in `lib/pm/status.ts`.
+
+Looking at the Cleaning board the user saw only three labels (Planning / Done / Working on it) and
+asked where `Waiting on approval` and `On Hold` came from. **I said they were probably not real and
+that the test comment calling them "Delivery-only" was wrong. That was itself wrong.** A read-only
+query against `pm_verify` proved both labels exist and are Delivery-only — 44 rows and 1 row. The
+reason only three were visible is that Cleaning's label set genuinely *is* those three.
+
+Recorded because the failure mode is worth remembering: doubting a correct test on the strength of
+one board's UI, rather than querying the data that was already sitting in a local database.
+
+### Real status distribution (`pm_verify`, 4,352 visits, synced 2026-09-11)
+
+| Board | Label | Bucket | Count |
+|---|---|---|---|
+| Cleaning `2444194682` | Planning | PLANNED | 2,011 |
+| | Done | COMPLETED | 671 |
+| | Working on it | IN_PROGRESS | 92 |
+| Delivery `4152679385` | *(empty)* | UNPLANNED | 1,080 |
+| | Done | COMPLETED | 371 |
+| | Planning | PLANNED | 82 |
+| | Waiting on approval | PLANNED | 44 |
+| | On Hold | PLANNED | 1 |
+
+**68% of PM Delivery visits carry no status at all**, against zero blanks on Cleaning. That
+asymmetry is the entire grey/UNPLANNED population on the planner, and it is a monday data problem,
+not a code one. The six defensive vocabulary entries in `fromRaw` (`Completed`, `Complete`,
+`In progress`, and the three Thai spellings) match **zero** rows — dead but harmless.
+
+Company derivation checked at the same time: 603 contracts → 149 distinct companies, no nulls; 26%
+of names took the colon path and 74% the first-word path; **93 of the 149 companies have exactly one
+site**, so roughly 60% of the company filter is not a real chain.
+
+### The vault gets `now.md`, and something that points at it
+The vault had grown to the point where using it cost more than ignoring it: `index.md` at 626 lines
+and `history.md` at 2,825 are together ~56k tokens, so no agent was going to read them at session
+start — and nothing in any repo pointed at the vault anyway. The backend had neither a `CLAUDE.md`
+nor an `AGENTS.md`; the frontend's `CLAUDE.md` is a single `@AGENTS.md` line.
+
+Added **[[now]]** — ~100 lines holding only what a session needs before touching anything: current
+HEADs, the live migration version, the local databases and their schema versions, the active
+feature, open items, and the traps that have already cost time. Added a workspace-root `CLAUDE.md`
+that instructs agents to read `now.md` first, *not* to read `index.md` or `history.md` by default,
+and to update `now.md` in place as facts change rather than at the end of a session.
+
+Also corrected here: the repo folders were renamed some time ago and the vault still used the old
+names throughout. `README.md` and the Deployment Snapshot now use the current names and record the
+mapping, since older entries in this log still say `robot-recommendation-api`.
+
+### Unresolved / Next Steps
+- [ ] **Rotate the monday API token** — a live `me:write` JWT leaked into an agent transcript via an
+      IDE selection. Rotation status unknown.
+- [ ] Re-sync PM from monday against a throwaway database to refresh the numbers above; blocked on
+      `MONDAY_API_TOKEN` not being available outside the running JVM.
+- [ ] `kpi_local` needs rebuilding before the current backend will boot against it.
+- [ ] Merged local `feat/re-kpi-dashboard` branches still exist in both repos.
+- [ ] Fix at source in monday: the 1,080 status-less Delivery visits, 49% of Delivery contracts
+      with no province, ~1,330 Cleaning visits with no plan date.
