@@ -6,7 +6,7 @@
 
 ## 2026-05-27 — Backend Steps 1–12
 
-Built all of [[robot-recommendation-api]]: Spring Boot 3.4.5 + Java 21, JWT auth stack ([[AuthTokenFilter]], [[UserDetailsServiceImpl]], [[JwtUtils]]), user management, file upload service, robot catalog entities + CSV/Excel import, AI service interfaces + [[MockAiService]], requirement/recommendation/proposal REST endpoints, Flyway V1–V12.
+Built all of [[RaasPal-Internal-Ops-backend]]: Spring Boot 3.4.5 + Java 21, JWT auth stack ([[AuthTokenFilter]], [[UserDetailsServiceImpl]], [[JwtUtils]]), user management, file upload service, robot catalog entities + CSV/Excel import, AI service interfaces + [[MockAiService]], requirement/recommendation/proposal REST endpoints, Flyway V1–V12.
 
 ---
 
@@ -280,7 +280,7 @@ Added a small, self-contained "CVTE C3 online/offline status" tracking feature o
 - [[CvteDeviceController]] (`cvte/controller/CvteDeviceController.java`) — `GET /api/v1/cvte/devices`, `POST /api/v1/cvte/devices/sync`, `POST /api/v1/cvte/devices/poll-now`, `POST /api/v1/cvte/devices/{deviceId}/poll-now`
 - [[RobotRecommendationApiApplication]] — added `@EnableScheduling`
 - [[application.properties]] — added `app.cvte.kava.*` properties bound to `CVTE_KAVA_BASE_URL/APP_ID/APP_SECRET/SIGN_TYPE/POLLING_ENABLED/POLLING_INTERVAL_MS`
-- [[README]] (`robot-recommendation-api/README.md`) — documented the 4 endpoints, 6 new env vars, and a "how to sync a device" walkthrough
+- [[README]] (`RaasPal-Internal-Ops-backend/README.md`) — documented the 4 endpoints, 6 new env vars, and a "how to sync a device" walkthrough
 
 **Frontend:**
 - [[types/api.ts]] — added `CvteDeviceResponse`, `CvteDeviceSyncRequest`
@@ -1361,7 +1361,7 @@ prompt rules were deliberately **not** reused, because the `Needs confirmation` 
 text on the form.
 
 **Signatures are uploaded per report, not fixed assets.** The first design embedded the two PNGs in
-`robot-recommendation-api/docs/`; the user corrected this — the technician photographs each signed line and
+`RaasPal-Internal-Ops-backend/docs/`; the user corrected this — the technician photographs each signed line and
 uploads both through the UI. They are stored as base64 `data:` URIs in the row rather than via
 [[FileUploadService]], because that writes to local disk and **Render's disk is ephemeral**, so a redeploy would
 silently break reprints of past reports. Since a phone photo is 3–5 MB and base64 inflates it by a third, the
@@ -1459,7 +1459,7 @@ code to save work already done.
   `D:\Work\SoftwareWorkSpace\RaasPalOps`. Cannot be done from inside a session whose cwd is the folder.
 - [ ] Copy the three path-keyed Claude session stores under `~/.claude/projects/` to their new keys, or the
   transcripts and auto-memory become unreachable: `d--Work-AISolution`,
-  `D--Work-AISolution-robot-recommendation-api`, `d--Work-SoftwareWorkSpace-raaspal-rims`
+  `D--Work-AISolution-RaasPal-Internal-Ops-backend`, `d--Work-SoftwareWorkSpace-raaspal-rims`
 - [ ] Write the Lightsail deployment files (`deploy/docker-compose.yml`, `api.env.example`,
   `nginx/raaspal-api.conf`, `deploy.sh`, `DEPLOYMENT.md`) — designed this session, not yet written
 - [ ] **Harvest every env var off Render before decommissioning it.** Copy `PARTNER_JWT_SECRET` and `JWT_SECRET`
@@ -1490,7 +1490,7 @@ spreadsheet was decoded by unzipping the `.xlsx` and parsing its XML — no Pyth
 available on this machine, and `poi-ooxml` would have meant writing a throwaway Java program.
 
 ### Files Modified
-- [[V28__add_inventory_and_robot_lifecycle]] (`robot-recommendation-api/src/main/resources/db/migration/`) —
+- [[V28__add_inventory_and_robot_lifecycle]] (`RaasPal-Internal-Ops-backend/src/main/resources/db/migration/`) —
   `robot_units` gains `status`/`version`/`robot_type`/`robot_id`/`location`; new `inventory_items` +
   `stock_movements` + `inventory_item_sku_seq`
 - [[V29__add_cleaning_specs_and_display_specs]] (same dir) — `robot_specs_cleaning` (101 spec columns,
@@ -1750,7 +1750,7 @@ parameter — a pattern [[CvteDeviceRepository]] had already solved with `CAST(:
 
 ### Files Modified
 
-**Backend — [[robot-recommendation-api]]**
+**Backend — [[RaasPal-Internal-Ops-backend]]**
 - [[V30__add_robot_inventory_temp]] (`db/migration/V30__add_robot_inventory_temp.sql`) — standalone stock table, no FKs
 - [[RobotStockEntry]] (`inventory/entity/RobotStockEntry.java`) — entity for `robot_inventory_temp`
 - [[RobotStockEntryRepository]] (`inventory/repository/`) — split `search`/`searchByStatus` to kill the `lower(bytea)` crash
@@ -2304,7 +2304,7 @@ would have let a `robot_units` row take a store-room-only state — a second pre
 `isStockRoomStatus()` was added, and only [[RobotStockService]] consults it.
 
 ### Files Modified
-- [[V37__add_robot_stock_lifecycle]] (`robot-recommendation-api/src/main/resources/db/migration/V37__add_robot_stock_lifecycle.sql`) — **new.** Widens `status` to `VARCHAR(32)` (`RETURNED_FROM_CUSTOMER` is 22 chars and the column held 20) and adds a nullable `packaging VARCHAR(16)`
+- [[V37__add_robot_stock_lifecycle]] (`RaasPal-Internal-Ops-backend/src/main/resources/db/migration/V37__add_robot_stock_lifecycle.sql`) — **new.** Widens `status` to `VARCHAR(32)` (`RETURNED_FROM_CUSTOMER` is 22 chars and the column held 20) and adds a nullable `packaging VARCHAR(16)`
 - [[RobotUnitStatus]] (`.../robotunit/entity/RobotUnitStatus.java`) — `UNDER_REPAIR`, `RETURNED_FROM_CUSTOMER`, and `isStockRoomStatus()`; appended to the enum so no ordinal shifts
 - [[Packaging]] (`.../inventory/entity/Packaging.java`) — **new.** `BOX` | `UNBOX`
 - [[RobotStockEntry]] (`.../inventory/entity/RobotStockEntry.java`) — `packaging` field, status widened to 32
@@ -2368,11 +2368,11 @@ additionally checked against 16 known dates, including both year boundaries and 
 case, and the TypeScript labels come out byte-identical to the Java ones.
 
 ### Files Modified
-- [[ReportPeriod]] (`robot-recommendation-api/.../report/service/ReportPeriod.java`) — **new.** The window one report covers. `ofMonth` is deliberately *tolerant* (an unparseable month matches no stored `report_month`, exactly as before); `ofWeek` is deliberately *strict* and 400s, because a week is resolved into a range and a typo would otherwise return a confident report for a window nobody asked for. Also builds the period label
+- [[ReportPeriod]] (`RaasPal-Internal-Ops-backend/.../report/service/ReportPeriod.java`) — **new.** The window one report covers. `ofMonth` is deliberately *tolerant* (an unparseable month matches no stored `report_month`, exactly as before); `ofWeek` is deliberately *strict* and 400s, because a week is resolved into a range and a typo would otherwise return a confident report for a window nobody asked for. Also builds the period label
 - [[ReportPreviewService]] (`.../report/service/ReportPreviewService.java`) — `build(sn, month)` kept as-is for its existing callers ([[ReportCacheService]], [[ReportLinkService]], [[ReportEmailService]], [[CustomerReportBundleService]]); new `buildForWeek(sn, week)`; both delegate to one private `build(sn, ReportPeriod)`. `clipToContractStart` generalized from a month to any period start
 - [[RobotTaskReportRepository]] (`.../telemetry/repository/RobotTaskReportRepository.java`) — non-paged `findByRobotUnitIdAndStartTimeBetween` for the week window (the paged sibling already existed for the partner API)
 - [[ReportPreviewController]] (`.../report/controller/ReportPreviewController.java`) — `month` and `week` both optional, **exactly one** required; both together is a 400 rather than a silent winner
-- [[WeeklyReportPeriodTest]] (`robot-recommendation-api/src/test/.../report/WeeklyReportPeriodTest.java`) — **new, 7 tests.** Mon–Sun inclusivity, the Bangkok-vs-UTC Sunday-night boundary, a week spanning two months, both label forms, an empty week, malformed weeks, and the monthly path unchanged
+- [[WeeklyReportPeriodTest]] (`RaasPal-Internal-Ops-backend/src/test/.../report/WeeklyReportPeriodTest.java`) — **new, 7 tests.** Mon–Sun inclusivity, the Bangkok-vs-UTC Sunday-night boundary, a week spanning two months, both label forms, an empty week, malformed weeks, and the monthly path unchanged
 - [[report-week]] (`robot-recommendation-web-raaspal/lib/report-week.ts`) — **new.** `isoWeekOf`, `previousIsoWeek`, `isoWeekRange`, `weekRangeLabel`; the weekly counterpart to [[report-month]]
 - [[ReportPreviewPanel]] (`robot-recommendation-web-raaspal/components/ReportPreviewPanel.tsx`) — Monthly/Weekly toggle, `<input type="week">`, week-aware Gausium sync range and sample-data label, share/email disabled in weekly mode with a note
 - [[api]] (`robot-recommendation-web-raaspal/lib/api.ts`) — `reportApi.preview(sn, { month } | { week })`
@@ -2822,6 +2822,353 @@ has room; the same headroom fix as the site's panels.
   from `target/classes` since 09:37, three hours older than the parser. March installation now
   reads 83.3% and the warnings box is gone.
 - [ ] Optional, RE team's call: Q5 is literally "overall satisfaction"; textbook CSAT would use it alone.
+## Session: 2026-09-11 — Daily Pending Case Report: MK sheet, SLA, freeze and daily sync
+
+**Date:** 2026-09-11
+**Tags:** #session #backend #frontend #database
+
+### Summary
+Took the Daily Pending Case Report from a monday adapter to a report the team can open and check. The parked
+case-report migration was renumbered **V38** and applied to Supabase (Flyway validated all 37 prior migrations
+with no checksum mismatch). The **MK sheet** now generates from the live delivery board, matching the
+`Raw_Delivery` sheet of the 09-Sep-2026 workbook column for column, and is viewable under Reports → Pending cases.
+
+The workbook settled three things that had been assumptions. **Days is inclusive** of the open day — on all five
+raw sheets `Open Date + Days` lands one past the "as of" date in the heading. **The SLA column is text**
+(`over SLA` / `Within SLA` / `On Hold`), not colour. And **MK, Yayoi and Bonus Suki are one customer** (MK
+Restaurant Group), which is why one SLA covers them and why branch prefixes M###, Y### and K### sit together.
+
+The user then found the real problem: monday is edited continuously, so picking a past date returned today's
+board under an old heading. Three mechanisms were built. **A — freeze on generate**: rows are stored in
+`case_report_run.rows_json` the first time a date is generated and served thereafter. **B — daily sync**: both
+boards are snapshotted into `case_ticket`, `case_ticket_update` and `case_ticket_status_history`. **Guard**: a
+past date with no frozen run is now *refused* rather than fabricated.
+
+⚠️ **A was first described as fixing back-dating. It does not, and that claim was wrong.** A freezes whatever it
+captures at generation time, so generating 09 Sep on 11 Sep froze 11 Sep's board. The user caught it by
+noticing both dates showed identical rows (only Days differed). The bad 09 Sep run was discarded and the guard
+added so the mistake cannot recur. **Nothing before 2026-09-11 is recoverable** — the first snapshot is that day.
+
+### Files Modified
+- [[V38__add_case_report_tables]] (`RaasPal-Internal-Ops-backend/src/main/resources/db/migration/V38__add_case_report_tables.sql`) — renumbered from the parked `V34__...sql.txt`; **applied 2026-09-11**
+- [[CaseSource]], [[CaseTicket]], [[CaseTicketUpdate]], [[CaseTicketStatusHistory]] (`casereport/entity/`) — snapshot entities
+- [[CaseReportDefinition]], [[CaseReportRun]], [[CaseRunStatus]] (`casereport/entity/`) — report config and frozen runs; `isReplaceable()` is false only for SENT
+- [[CaseTicketRepository]], [[CaseTicketUpdateRepository]], [[CaseTicketStatusHistoryRepository]], [[CaseReportDefinitionRepository]], [[CaseReportRunRepository]] (`casereport/repository/`)
+- [[SlaStatus]], [[SlaCalculator]] (`casereport/service/`) — `daysOpen()` is the single source for both the Days column and the verdict
+- [[CaseReportRow]] (`casereport/dto/`) — field order is the sheet's column order
+- [[MkPendingReportGenerator]] (`casereport/service/`) — live delivery-board read, MK/Yayoi/Bonus Suki filter, `#` prefix stripped, branch code joined to name
+- [[CaseReportRunService]] (`casereport/service/`) — freeze, discard, and the past-date refusal
+- [[CaseReportDefinitionSeeder]] (`casereport/service/`) — creates MK_PENDING on startup; **never updates**, so DB edits survive restarts
+- [[CaseTicketSyncService]], [[CaseSyncCoordinator]] (`casereport/service/`) — per-board sync, driven from a separate bean
+- [[CaseReportDailyScheduler]] (`casereport/scheduler/`) — snapshot then freeze, 06:15 Bangkok, **off by default**
+- [[CaseReportController]] (`casereport/controller/`) — `GET /mk`, `GET|DELETE /mk/run`, `POST /sync`, `GET /sync/status`
+- [[application.properties]] — `app.casereport.sync-enabled` / `sync-cron`; metro-province comment enriched
+- test `application.properties` — `metro-provinces` and `sync-enabled=false` (this file shadows the main one)
+- [[SlaCalculatorTest]] — 13 tests, replaying all 16 rows of the live delivery sheet
+- [[CasePendingPanel]] (`robot-recommendation-web-raaspal/components/CasePendingPanel.tsx`) — new read-only review screen
+- [[ReportsClient]], `reports/page.tsx`, [[api]], `types/api.ts`, `messages/en.json`, `messages/th.json` — third tab group
+- `robot-recommendation-web-raaspal/.env.local` — switched to MODE B (gitignored, local only)
+
+### Decisions Made
+- **SLA is 3 days inside the six greater-Bangkok provinces, 5 elsewhere, for MK/Yayoi/Bonus Suki delivery** — the user's statement, confirming V38. Compared with `>`, so a case at exactly the limit is still within SLA. Cleaning is 3 days everywhere, and when both thresholds are equal the province is never consulted.
+- **Province comes from `color_mm6mwh74`**, a dropdown on the delivery board only. Verified 2026-09-10: 14 labels, all open tickets filled. The six metro labels happen to be Latin and the eight upcountry ones Thai; both scripts are listed in config so a later `กรุงเทพมหานคร` cannot fall through to the 5-day threshold.
+- **A missing province yields no verdict, never a default** — defaulting to 5 would show a late Bangkok case as on time.
+- **Column ids live in each generator, not a shared map.** `text` is Solution on delivery but Main Issue on cleaning; `status_1` is Sup Status on delivery but Issue Level on cleaning. A shared mapping is one place to get both boards wrong.
+- **Refuse a past date rather than fabricate it.** A live read stamped with an old date is convincing precisely because Days changes with `asOf` — so it is worse than an error.
+- **Each board syncs in its own transaction, from a separate coordinator bean.** `@Transactional` on a method called via `this` does nothing; the first two attempts failed with "No EntityManager with actual transaction available". Separate transactions also mean a cleaning failure does not roll back the delivery snapshot.
+- **Scheduler off by default**, matching `ReportDeliveryScheduler`.
+
+### Unresolved / Next Steps
+- [x] ~~Turn the scheduler on~~ — done later the same day on Lightsail; see session 2026-09-11b.
+- [ ] **The deployed backend has none of this.** Deploying needs `MONDAY_API_TOKEN` set on Render — `application.properties` defaults it to empty, so the endpoint would exist and fail on its first monday call.
+- [ ] **Excel export not built.** `poi-ooxml` is already in `pom.xml`. The workbook shows the MK sheet should be one sheet in `Raw_Delivery` layout; an All Case export should mirror the full workbook.
+- [ ] **Snapshot-backed reconstruction not built.** The generator still reads monday live. Past dates are answered only by frozen runs. `case_ticket` is updated in place, so a reconstruction could recover status (from history) but not problem text, branch or province as they stood.
+- [ ] **No "regenerate from board" control in the UI** — `?refresh=true` works on today's draft but the panel never sends it.
+- [ ] Two rows of the 09-Sep file disagree with the SLA rule: M453 โรบินสัน ฉะเชิงเทรา (7 days) and M057 ศรีราชานคร (6 days) both print "Within SLA" though both are upcountry and past 5 days. Pinned as expected divergences in `SlaCalculatorTest`. Worth asking whether a scheduled RE On Site date exempts a case — both rows have one.
+- [ ] Header typos `Brucn` and `Solutiom` in the live template — keep verbatim or correct? Unanswered.
+- [ ] The earliest sync attempts ran with no transaction, so each `save()` committed individually while the bulk close failed. The resulting rows are correct, but those runs were not atomic.
+- [ ] `activity_logs` on monday retains column changes with previous and new values — a possible backfill route for the recent past. Timestamp units unconfirmed (a naive conversion produced year 2536) and retention unknown.
+---
+---
+## Session: 2026-09-11b — Solution column via Haiku, merge with PM planner, PR #6 reviewed and merged
+
+**Date:** 2026-09-11
+**Tags:** #session #backend #ai #deployment #config
+
+### Summary
+Three things landed on `main` in one PR. **First, the Solution column.** It was blank on seven tickets in eight,
+and the earlier session's design — "a status log built from consecutive snapshots, no AI" — was wrong: the
+09-Sep workbook's Solution lines are a human *paraphrase of the comment thread*, one dated entry per step,
+in a fixed house vocabulary (`อยู่ระหว่าง…`, `รอ…`, `เจ้าหน้าที่เข้าซ่อม`). So [[MkPendingReportGenerator]] now
+sends each ticket's comments (oldest first, intake form dropped) to a new [[CaseSolutionAiService]], implemented
+by [[ClaudeAiService]] on Haiku (`claude-haiku-4-5-20251001`) and by [[MockAiService]] without a key. A value
+somebody typed into the board column still wins. The one rule the model kept breaking — a date range across two
+months, `25-11 Sep` — is enforced deterministically in [[SolutionLine]] rather than re-prompted.
+
+**Second, the merge.** The coworker's PM 52-week planner reached `main` as **V39** (with the case-report V38
+already on production, so main alone would have failed Flyway validation). `main` was merged into `dev-1`
+(`faa74a9`); V36–V39 all present, nothing dropped — the CM report (V27) and the case report (V38) were both
+checked file by file after the user asked where the CM code was.
+
+**Third, PR #6 (`dev-1` → `main`), reviewed before merging.** The review found eight things; four were real
+defects and were fixed on the branch (`cb40b6f`) before the merge (`cf04b84`):
+1. **The Thai metro provinces never matched.** Spring Boot reads `.properties` as ISO-8859-1 (verified in the
+   `spring-boot-3.4.5.jar` loader), so `กรุงเทพมหานคร` and the rest loaded as mojibake and a Thai-spelled metro
+   province would have taken the 5-day SLA. Not yet triggered — the board's six metro labels are Latin — but
+   the config existed precisely for the day that changes. Now `\uXXXX`-escaped in both properties files, with
+   [[MetroProvincesPropertyTest]] loading both through Spring's own loader.
+2. **Solution dates were UTC.** monday's `created_at` ends in `Z`; a comment posted before 07:00 Bangkok was
+   dated the previous day. The generator converts to `Asia/Bangkok`; the sync pins `posted_at` to UTC explicitly.
+3. **`25-11-Sep` (hyphen before the month) went through unsplit** — only the space form was recognised.
+4. `MockAiService` used `"\s+"`, which since Java 15 is a literal-space pattern, not whitespace.
+The other four are logged below as follow-ups, none blocking a manual, single-reviewer rollout. Suite: **200
+tests pass** (191 after the merge + 9 new).
+
+The Monday API key was moved out of the local override into env config (`MONDAY_API_TOKEN`), and the V38
+numbering collision with the coworker's KPI branch was settled: production keeps the case-report V38; his
+branch reworks to an `ALTER` at V40+ after this merge.
+
+### Files Modified
+- [[CaseSolutionAiService]] (`ai/service/`) — new interface, `summariseProgress(CaseProgressRequest)`; never throws, empty string for nothing
+- [[ClaudeAiService]] (`ai/service/`) — implements it on Haiku; [[MockAiService]] — deterministic dated condensation; regex fix
+- [[AiPromptTemplates]] (`ai/prompt/`) — `caseSolutionSystemPrompt()`, transcribed from the workbook's style
+- [[CaseProgressRequest]] (`casereport/dto/`) — branch, problem, statuses, asOf, `List<Comment(postedOn, author, body)>`
+- [[SolutionLine]] (`casereport/service/`) — cross-month range splitter; now both `25-11 Sep` and `25-11-Sep`; one-day sides print `31-Aug`; impossible first day left as written
+- [[MkPendingReportGenerator]] — `solutionFor()`; comment dates in Bangkok; future-dated tickets skipped on a back-dated run
+- [[CaseTicketSyncService]] — `posted_at` pinned to UTC; stale "status log" Javadoc corrected (also in [[CaseTicket]], [[CaseTicketStatusHistory]], [[CaseReportRow]], [[CaseReportDailyScheduler]])
+- [[application.properties]] + test copy — `app.monday.api.token=${MONDAY_API_TOKEN:}`, `MONDAY_UPDATES_PER_ITEM`, metro provinces unicode-escaped
+- `deploy/api.env.example`, `deploy/DEPLOYMENT.md`, `README.md` — monday + case-report settings documented for Lightsail
+- [[SolutionLineTest]] (11), [[MetroProvincesPropertyTest]] (4), [[MkPendingReportGeneratorTest]] (1) — new/extended
+- Merged from main: [[V39__add_pm_planning_tables]], `pm/` package, `deploy/preview/` stack, monday DTO changes (`MondayItemRef`)
+
+### Decisions Made
+- **Solution is a model paraphrase, not a snapshot-derived log.** Verified against the workbook line by line; the earlier claim in this vault was wrong and is superseded. A typed board value always wins over the model.
+- **Haiku, not Sonnet, for the Solution line** — one call per ticket per generation, short output, house-style constrained; cost matters more than nuance here.
+- **The month-boundary rule lives in code, not the prompt.** A paraphrase is not deterministic; a rule the report cannot break has to be enforced where it can be tested.
+- **Fix the review's real defects before merging, defer the structural ones.** AI calls inside `@Transactional`, the concurrent-first-generation race, and discard-of-past-runs are documented on PR #6 rather than merged as workarounds.
+- **Merge, not squash** — matching the team's PR #4/#5 history.
+
+### Unresolved / Next Steps
+- [x] **Deployed to Lightsail 2026-09-11 10:21 UTC** via `bash deploy/deploy.sh` — up after 60 s; Flyway `Current version of schema "public": 38` → `Migrating … to version "39 - add pm planning tables"` → `now at version v39`; `Started … in 41.8 seconds`; container `(healthy)`; `https://api.raaspal.com/v3/api-docs` 200 and `/actuator/health` 401 (expected — not permitted); 1.6 GiB used of 7.6, no swap. The authenticated check then passed at 10:30 UTC with a real login: `sync/status` → 12 open delivery, 49 open cleaning, 61 tickets, 285 comments, 61 status-history rows all observed today; `mk?refresh=true` → `success:true`, 10 rows, Solution lines in house style (`25-Aug รอลูกค้าตัดสินใจเปลี่ยนแบตเตอรี่ 04-Sep ลูกค้าอนุมัติใบเสนอราคา …`), which proves both `MONDAY_API_TOKEN` and `ANTHROPIC_API_KEY` are set on the box. That call also froze today's run (AWAITING_APPROVAL).
+- [ ] Set `MONDAY_API_TOKEN` on Render too while it is still serving.
+- [ ] After deploying, regenerate today's MK draft with `?refresh=true` — drafts frozen before the UTC fix may date early-morning comments a day early.
+- [ ] PR #6 follow-ups: split `CaseReportRunService.rowsFor` so the Haiku calls run outside the transaction; catch `uq_case_report_run_day` on a concurrent first generation and serve the stored run; consider ADMIN-only `DELETE /mk/run` for past dates.
+- [ ] `deploy/api.env.example` trap (pre-existing): bare `KEY=` lines give Spring an *empty string*, not the default — 8 numeric/cron keys crash startup if left bare (`CVTE_KAVA_POLLING_INTERVAL_MS`, `PARTNER_*`, `REPORT_CACHE_*`), 11 silently lose their default. Comment them out instead.
+- [ ] Coworker's KPI branch: its V38 → `ALTER TABLE case_ticket ADD COLUMN …` + `CREATE case_ticket_sync_run` at **V40**, its later ones V41–V43; rebuild his local DB.
+- [ ] Console commit `cafd93a` on `feat/dailycasereport-page` carries a backend commit message (content is right). Optional amend before its PR.
+- [x] **Scheduler turned on 2026-09-11 ~10:40 UTC** — `CASE_REPORT_SYNC_ENABLED=true` added to Lightsail's `deploy/api.env`, `docker compose up -d` recreated the container (2.3 s), `docker compose exec api env` confirmed the value inside. Render never had the property, so Lightsail is the only instance that can run it.
+- [ ] **Verify the first unattended run on 2026-09-12 after 06:15 Bangkok** — log lines `Daily case sync: board …` ×2 and `Froze the MK_PENDING report for 2026-09-12`, or `GET /api/v1/case-reports/mk/run?asOf=2026-09-12` → `exists:true`.
+- [ ] Excel export, AOT and ALL_PENDING generators still unbuilt (see previous session).
+---
+---
+## Session: 2026-09-13 — Case report: compared with the RE team's sheet; rows editable and addable; Days exclusive
+
+**Date:** 2026-09-13
+**Tags:** #session #backend #frontend #deployment
+
+### Summary
+The MK report was compared row by row against the RE team's hand-built "Pending case Delivery as of 11 Sep
+2026". **Our 10 rows were their 10 cases; their 11th (M057 ศรีราชานคร) sits in the board's "Done Check
+เพื่อปิดเคส" group, not "All Case"** — checked live, and two other tickets of identical shape (Y049, M368)
+were *not* on their sheet, so it is not a rule, it is a case moved too early or carried over. Three further
+differences were rules in the team's heads rather than bugs: (1) on 5 rows their **Open Date is the date MK
+approved the quote / parts shipped**, not the ticket's open date — no board column holds it, and it flips
+M442 and M177 from over to within SLA; (2) their **11-Sep sheet counts Days exclusively** (opened today = 0)
+while the 09-Sep workbook counted inclusively; (3) Y084's serial differs from the ticket's. The RE On Site and
+บางพลี Open Date differences were only timing — the board was edited at 19:12 Bangkok, after the 17:30 freeze.
+
+The user's decision: **generate, then let the staff correct on the web.** Days becomes exclusive (their newer
+file wins; a reviewer overtypes one row if needed); the Open Date rule is left alone; the ticket's serial is
+used. Built on `feat/case-report-edits` in both repos, PR #8 each, **not yet merged**:
+- `PUT /mk/rows/{sourceItemId}` replaces every printed cell of one row in the stored draft; Days and SLA are
+  recomputed from Open Date + Province unless typed; a held case stays held. Refused once sent.
+- `POST /mk/rows` adds a row the board lacks (`manual-…` id); `DELETE /mk/rows/{id}` removes one — only
+  those, since a board row would be back on the next regeneration.
+- **Edited and added rows survive `?refresh=true`**; the rest are rebuilt from the board. A past day's draft
+  can be edited but not regenerated, and now says so.
+- Branch code falls back to the Unit column / item name (recovers all five blanks); rows sorted oldest first.
+- Console: pencil per row → dialog with every cell incl. Province; "Add row"; "Remove row" on added rows;
+  "Regenerate from monday"; edited/added badges and counts; the Reports page is now full width (the 64rem
+  cap was clipping the table's last two columns).
+
+Also today: the console `main` was fast-forwarded (coworker merged PR #4 = the pending-case page, #6/#7 =
+PM planner), and the earlier vault note saying the page was unmerged was corrected.
+
+### Files Modified
+- [[CaseReportRow]] — `edited` flag, `MANUAL_PREFIX`, `isManual()` (`@JsonIgnore`), `withNo()`; Days doc → exclusive
+- [[CaseRowEdit]] (`casereport/dto/`) — new: the form's row, null days/sla = recompute, plus `province`
+- [[CaseReportRunService]] — `editRow`, `addRow`, `removeRow`, `requireDraft`, `build`, `keepEditedRows`; past-day refresh message
+- [[CaseReportController]] — `PUT`/`POST`/`DELETE /api/v1/case-reports/mk/rows…`
+- [[SlaCalculator]] — `daysOpen` = `DAYS.between`, no +1
+- [[MkPendingReportGenerator]] — `branchCode()` fallback (`text_mksgzhzr` Unit, item name), sort by open date
+- [[SlaCalculatorTest]] — pins re-based to exclusive; [[CaseReportRunServiceEditTest]] — new, 10 tests. **210 pass**
+- [[CasePendingPanel]], `components/CaseRowEditDialog.tsx` (new), [[api]], `types/api.ts`, [[ReportsClient]] (full width)
+
+### Decisions Made
+- **Correct on the report, not on monday.** Edits live in `case_report_run.rows_json`; monday is never written. `case_ticket_override` (V38) stays unused for now.
+- **Days exclusive** — matches the team's most recent file; documented as a choice that can be re-based.
+- **Manual rows are the answer to "the board is wrong about what is pending"** — not a Done-Check rule, which would have pulled in Y049 and M368 too.
+- **Board rows cannot be deleted from the report** — that is monday's job, or the deletion silently reverts.
+
+### Unresolved / Next Steps
+- [x] **Backend PR #8 and console PR #8 merged 2026-09-13** (`ce89edd`, `77565ca`). Lightsail deploy of `ce89edd` pending — `bash deploy/deploy.sh`; Vercel picks up the console on its own.
+- [x] **Raw_Cleaning and Raw_Makro BUILT 2026-09-13** (PR #9, see session 2026-09-13b). Next: รอ QT รายการซ่อม, then RAW_AOTGA last.
+- [ ] Ask the RE team: is M057 still pending (move it back to All Case)? What is "Open Date" on their sheet — approval date? Y084 serial: ticket `…6078` vs sheet `…4095`?
+- [ ] Board data error spotted: every ศรีราชา ticket carries Province **Samut Sakhon** (metro, 3 days); Sriracha is in **Chonburi** (5 days). Worth fixing on the board's dropdown.
+- [ ] PM "Sync from monday" hang (see index) — timeouts on [[MondayApiClient]] still to do.
+---
+---
+## Session: 2026-09-13b — Cleaning and Makro pending-case sheets
+
+**Date:** 2026-09-13
+**Tags:** #session #backend #frontend
+
+### Summary
+Two more of the RE team's five sheets. Both come from the cleaning board's "All Case" group (54 open tickets
+on 2026-09-13), split the way the team splits it: **Makro** on its own sheet, the **airports** (สุวรรณภูมิ,
+ดอนเมือง, AOTGA, แม่ฟ้าหลวง) held back for the AOTGA sheet, and the rest as **Cleaning**. The three sets do not
+overlap — a reviewer cannot remove a board row from a report, so a Makro ticket on the Cleaning sheet would be
+there every morning. The user had guessed "all cleaning cases"; the workbook's partition was followed instead
+and the reason given. Customer is read from **Branch Name**, which is filled on every ticket where the Project
+tag is blank on 25 of 54. SLA 3 days everywhere, so the calculator never consults a province. Merged as PR #9
+in both repos (`3a33bd4`, `7d54ade`); Lightsail deploy pending.
+
+**Expected divergence from the team's sheet:** their 09-Sep Raw_Cleaning had 2 rows; ours will have ~25–30,
+because ~13 open cases are waiting on a customer's quotation (their รอ QT sheet) and ~17 have Sup Status
+"Done" (RE visited, paperwork pending). Whether those are "pending" is the RE team's call → a status filter.
+
+### Files Modified
+- [[CleaningPendingReportGenerator]] (`casereport/service/`) — new; `Scope { CLEANING, MAKRO }`; cleaning column map (`asset_owner3__1`, `text6`, `status_17`, `text0`, `text`, `long_text`, `date8`, `date_1`, `status`, `status7`); Makro/airport keyword lists
+- [[SolutionLineWriter]], [[MondayCells]] (`casereport/service/`) — extracted from [[MkPendingReportGenerator]] so both boards share the Solution rule and lenient date parse
+- [[CaseReportDefinition]] — `CLEANING_PENDING`, `MAKRO_PENDING`; [[CaseReportDefinitionSeeder]] seeds per code (only creates)
+- [[CaseReportRunService]] — `generate()` dispatches by code; [[CaseReportDailyScheduler]] freezes all three
+- [[CaseReportController]] — routes take the slug `{report:mk|cleaning|makro}`; MK paths unchanged
+- [[CleaningPendingReportGeneratorTest]] — 5 tests. **215 pass**
+- [[CasePendingPanel]] — takes a `CaseReportSpec` (slug, board id, Project/Branch columns, hint, new-row defaults); `CASE_REPORTS`; [[CaseRowEditDialog]] `newRow` defaults; [[api]] `caseReportApi.rows/editRow/addRow/removeRow(report, …)`; [[ReportsClient]] + `page.tsx` tabs `case-cleaning`, `case-makro`; en/th labels
+
+### Decisions Made
+- **Partition the cleaning board by customer, as the workbook does** — not "all cases", because board rows cannot be removed from a report.
+- **Airports excluded from Cleaning now**, ahead of the AOTGA sheet, so they do not have to be un-shown later.
+- **Cleaning keeps waiting-for-quotation and Sup-Status-Done cases** until the team says otherwise; the comparison will show the gap.
+
+### Unresolved / Next Steps
+- [ ] `deploy.sh` on Lightsail; expect `Seeded the CLEANING_PENDING report definition` and `MAKRO_PENDING` in the log.
+- [ ] Compare Cleaning and Makro against the team's latest sheets; decide the status filter (รอลูกค้าพิจารณาใบเสนอราคา → รอ QT sheet; Sup Status Done → pending or not?).
+- [ ] Next sheets: รอ QT รายการซ่อม (cross-board, waiting-for-quotation), then RAW_AOTGA (no SLA; part columns from comments).
+---
+---
+## Session: 2026-09-13c — Confirmation before every send, delete and revoke
+
+**Date:** 2026-09-13
+**Tags:** #session #frontend
+
+### Summary
+"Run delivery now" emailed every customer on a single click, and the other sends had no guard either. A
+`useConfirm()` hook and dialog ([[confirm-dialog]], `components/ui/`) now sits in front of every button that
+emails a customer or cannot be undone. Each dialog states the specific act — recipient count or name, month,
+"cannot be recalled" — and the confirm button carries the action's own label. Focus lands on Cancel and Escape
+cancels, so a stray Enter cannot send. Guarded now: the monthly run, single-customer send and per-row resend
+([[ReportAutomationPanel]]), the company bundle send ([[CustomerBundlePanel]]), the preview's report email
+([[ReportPreviewPanel]]), the announcement ([[CustomerEmailPanel]]), and Remove row ([[CasePendingPanel]]).
+The browser-`confirm()` sites (customer delete, key revoke, robot unassign, bulk Monthly, deactivate) moved
+onto the same dialog. Robot deletion keeps its password check; proposal deletion its inline two-step. Merged as
+console PR #10 (`771b5cb`); Vercel deploys it, no backend change.
+
+### Files Modified
+- `components/ui/confirm-dialog.tsx` — new: `useConfirm()` → `{ confirm(options): Promise<boolean>, confirmDialog }`
+- [[ReportAutomationPanel]], [[CustomerBundlePanel]], [[ReportPreviewPanel]], [[CustomerEmailPanel]], [[CasePendingPanel]], [[CustomersPanel]], [[PartnersPanel]], [[RobotsPanel]] — wired
+
+### Decisions Made
+- **One dialog for all serious actions**, in the app's words, rather than the browser popup — so a reader confirms a specific act, and so Cancel has focus.
+- eslint on `main` already reports 8 `set-state-in-effect` / `use-memo` errors in these files (untouched, pre-existing); `npm run build` does not run eslint, so they do not block.
+
+### Unresolved / Next Steps
+- [ ] Click through each guarded button on ops.raaspal.com once Vercel has deployed `771b5cb`.
+- [ ] Optional: clear the 8 pre-existing eslint errors (`useEffect(() => setVisibleCount(PAGE_SIZE), [query])` pattern ×5, `useMemo(fn, [])` ×2) in a tidy-up PR.
+---
+---
+## Session: 2026-09-13d — Borderless layout; Solutions hub; honest top-bar search
+
+**Date:** 2026-09-13
+**Tags:** #session #frontend
+
+### Summary
+Three console-only changes, merged as PR #12 then PR #11 (`main` = `b4b1b4d`), Vercel deploys.
+**Borderless layout** — every card, the sidebar's right edge, the top bar's bottom edge, section dividers and
+chips were drawn with the one token `border-[var(--app-border)]` (85 card sites alone). One unlayered rule in
+`globals.css` makes that token transparent on layout elements and gives `rounded-xl|2xl` cards a soft lift
+instead; inputs, buttons, table internals, coloured alert boxes and the dashed add-tile keep their edges.
+**Solutions hub** — Generate Solution, Solutions and Proposals were three sidebar entries for one sequential
+job; now one `Solutions` entry opening `/solutions?tab=generate|solutions|proposals` (Reports' pattern).
+`/generate-solution` and `/proposals` redirect to their tab; the generation steps and `/proposals/[id]` keep
+their routes and light the entry up via `alsoMatches`. **Top-bar search** — on nine pages it was a painted box
+with placeholder text that did nothing; [[AppTopBar]] now draws it only where a page wires `onSearchChange`.
+
+### Files Modified
+- `app/globals.css` — the edgeless rule (light + dark shadows)
+- `app/[locale]/solutions/SolutionsHubClient.tsx` (new), `page.tsx` (reads `?tab`), [[SolutionsClient]] → `SolutionsList({searchQuery})`
+- `components/solutions/GenerateSolutionHub.tsx` (new, from the old page); `app/[locale]/generate-solution/page.tsx` and `proposals/page.tsx` → locale-aware `redirect`
+- [[ProposalsClient]] → `ProposalsList({searchQuery})`; `ProposalViewClient` back link; [[RecentSolutions]], `Header.tsx` links
+- [[AppSidebar]] — one entry with `alsoMatches`; [[AppTopBar]] — no fake search; `messages/*.json` `solutionsHub`
+
+### Decisions Made
+- **CSS rule over 85 edits** — one place to tune or revert; explicitly unlayered so it beats the utility.
+- **Keep field/table edges** — an input without an edge is not findable; row dividers are reading aids, not frames.
+- **No fake search** — a search box that does nothing is worse than none. A real global search is a separate feature if wanted.
+
+### Unresolved / Next Steps
+- [ ] Eyeball ops.raaspal.com after the Vercel deploy: light + dark, sidebar highlight inside a generation step, redirects.
+- [ ] Optional: a real global search (customer / robot / proposal) in the top bar.
+---
+---
+## Session: 2026-09-14 — Robot catalogue import, photos, scroll pagination, and the N+1 behind the slow page
+
+**Date:** 2026-09-14
+**Tags:** #session #database #backend #frontend
+
+### Summary
+**The catalogue.** `D:\Work\Robots\Robot(All) Comparision.xlsx` was decoded (no Excel tooling — unzip + XML) and
+turned into three SQL scripts in `D:\Work\Robots\import\`, each dry-run against production inside a rolled-back
+transaction. The user asked to delete the existing rows first; **that was refused with a reason**: 73 deployed
+robot_units point at Omnie alone, 119 in total, plus 37 recommendation_items on KEENON C40 / AGIBOT C5, so a
+DELETE would either fail on the FK or orphan the fleet. Existing rows are **renamed** to the sheet's spelling
+instead (ids kept, links intact) and everything else upserted by (brand, model).
+- `robots-import.sql` → 69 robots (38 cleaning, 25 delivery, 3 equipment, 3 mowing) + `robot_display_specs`
+  (every sheet attribute verbatim) + the numeric columns of `robot_specs`. Robots went 19 → 70.
+- `robots-matrix.sql` → `robot_specs_cleaning`, the table Spec matrix reads: restores Omnie Disc Brush's 81
+  datasheet values (lost with the duplicate row) and fills 44 parsed columns for all 38 cleaning robots,
+  `COALESCE(existing, new)` so the older datasheet import wins. Matrix went 10 → 38 models.
+- `robots-photos.sql` + 69 WebP files → every robot's photo. The workbook's images are anchored per model
+  column, so the mapping needed no name matching; 33.2 MB of PNG became 1.7 MB at 900px.
+
+**The slow page.** After the import the catalogue took ~20 s. Cause found by measurement, not guesswork:
+`RobotService.getAll` called `findByRobot_Id` per row — 70 sequential queries — and **one round trip to the
+Supabase pooler measures 309 ms** (the project is in `ap-southeast-2`, Sydney, while Lightsail is in
+Singapore). 70 × ~280 ms ≈ the 20 s. One batched query for the same data: 969 ms. Fixed in backend PR #10.
+
+**Scroll pagination.** Page numbers replaced by reveal-on-scroll everywhere (7 lists). The first version
+cascaded — the sentinel fired on every intersection report, so the whole list unrolled at once; now one batch
+per scroll with a latch, 120px margin, batch of 20. The catalogue and matrix queries also stop re-fetching on
+window focus (15-minute staleTime), which is what made the wait happen twice.
+
+### Files Modified
+- `RobotSpecRepository.findByRobot_IdIn`, `RobotService.getAll` — one query for a page's specs
+- `components/ui/infinite-scroll.tsx` (new), [[RobotsClient]], [[RobotsPanel]], [[CustomersPanel]], [[CmReportHistoryPanel]], [[CustomerEmailPanel]], [[ReportPreviewPanel]], [[CustomerBundlePanel]], [[RobotSpecMatrix]]
+- `public/robot-photos/` — 69 files; `app/[locale]/solutions/tabs.ts` (the user's fix, see Decisions)
+- Scripts kept in the scratchpad: `robots-sql.js`, `robots-matrix-sql.js`, `photos-map.js`, `photos-export.js`, `dbq/q.js`
+
+### Decisions Made
+- **Rename, never delete, a catalogue row with fleet or recommendation links.** The import is idempotent and keeps ids.
+- **Photos in the console's `public/`, not the backend.** An `<img src>` carries no Authorization header, so a backend-served image needs a token proxy (as RIMS has); these are static product photos.
+- **Server-side paging not added.** With the N+1 gone the whole catalogue is ~1 s; fetching 20 rows at a time would also move search to the backend. Revisit only if measurement says so.
+- **Database region left in Sydney for now.** Supabase cannot move a project; it means a new project + dump/restore (61 MB, no Auth users, no Storage objects, no RLS — so it is only a `pg_dump --schema=public`). Deferred until the N+1 fix is deployed and measured.
+
+### Unresolved / Next Steps
+- [ ] ⚠️ **`deploy.sh` on Lightsail** — carries three merged backend PRs: editable case-report rows (#8), Cleaning/Makro sheets (#9), catalogue N+1 (#10). Expect `Seeded the CLEANING_PENDING…` / `MAKRO_PENDING` on that start.
+- [ ] Run the three SQL files in order: `robots-import.sql`, `robots-matrix.sql`, `robots-photos.sql` (Supabase SQL editor; the "destructive operations" and "table without RLS" warnings are the guarded 2-row delete and the `ON COMMIT DROP` temp table — Run without RLS).
+- [ ] Baseline for any future move: Flyway 38 rows at v39, robots 70, robot_units 165, robot_task_reports 80,148, users 9, customer_profiles 67, case_ticket 71, pm_visit 4,352, robot_inventory_temp 92, cm_reports 7.
+- [ ] `robot_display_specs` (69 rows) is written but no screen reads it. Delivery/equipment/mowing have no matrix — their own vocabulary (tray load, layers, cutting width) rather than cleaning's 101 columns.
+- [ ] Two robots share one photo where the sheet anchored one image across two columns (Aventurier SE/Pro, LUBA 3000/5000).
 ---
 
 ## 2026-09-17 — PM planner and KPI dashboard merge to main; the vault gets a cheap entry point

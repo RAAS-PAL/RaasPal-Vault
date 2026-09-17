@@ -40,6 +40,11 @@ empty state.
 ## Database
 
 - Highest migration on `main` is **V49** (`V49__add_csat_workbook_uploads.sql`).
+  **Production is still at V39.** The next backend deploy applies **V40–V49 in one go** — ten
+  migrations, the whole KPI and CSAT surface. Review before deploying; this is a prod change.
+- **Lightsail is well behind `main`.** The live build dates from 2026-09-11 and predates PR #8,
+  #9 and #3. `bash deploy/deploy.sh` to catch it up. `ops.raaspal.com` (Vercel, frontend) is
+  current; its proxy needs `BACKEND_PROXY_TARGET=https://api.raaspal.com` set in the Vercel env.
 - ⚠️ **Local dev and production share one Supabase database.** Booting locally applies pending
   migrations to prod. Expand and contract: add, deploy, *then* drop.
 - ⚠️ **Never edit a committed `V*.sql`.** Flyway checksums it and refuses to start on mismatch —
@@ -89,6 +94,7 @@ Four monday boards, ids in `application.properties` under `app.pm.monday.*`:
 - [ ] `kpi_local` needs rebuilding (see above).
 - [ ] Merged local branches `feat/re-kpi-dashboard` still exist in both repos and can be deleted.
 - [ ] Wire the `pmComplete` KPI placeholder now that both features are on `main`.
+- [ ] Deploy the backend — Lightsail is ten migrations behind `main` (see above).
 
 ## Working rules that have cost time when ignored
 

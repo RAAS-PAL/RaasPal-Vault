@@ -22,7 +22,7 @@ An internal RAASPAL platform where the team uploads a customer survey form, AI e
 
 | Service | Location | Stack |
 |---|---|---|
-| Backend API | [[robot-recommendation-api]] | Spring Boot 3.4.5 · Java 21 · PostgreSQL |
+| Backend API | [[RaasPal-Internal-Ops-backend]] | Spring Boot 3.4.5 · Java 21 · PostgreSQL |
 | Frontend Web (console) | [[robot-recommendation-web-raaspal]] | Next.js 16 · TypeScript · Tailwind v4 |
 | Frontend Web (inventory) | [[raaspal-rims]] | Next.js 16 · own component library · **fully wired to the backend** |
 | Database | Supabase PostgreSQL (cloud) | Session-mode pooler · Flyway migrations |
@@ -43,22 +43,30 @@ An internal RAASPAL platform where the team uploads a customer survey form, AI e
 
 | Repo | HEAD | Tree | Deployed |
 |---|---|---|---|
-| [[RaasPal-Internal-Ops-backend]] | `7f978c0` PM company include list + header limit | clean, on `main` | ❓ not re-verified since 2026-08-31 |
-| [[RaasPal-Ops-frontend]] | `9011d22` ticket-chart month labels | clean, on `main` | ❓ Vercel state not verified |
-| [[RaasPal-RIMS]] | `44ed937` store-room statuses + packaging (2026-08-31) | not checked | ❓ Vercel state not verified |
+| [[RaasPal-Internal-Ops-backend]] | `7f978c0` on `main` — **PR #3 merged 2026-09-17 04:36Z** (`3749c70`), landing the RE KPI dashboard and the PM 52-week planner. Before it: PR #10 2026-09-14 (catalogue N+1 fix), #9 Cleaning + Makro sheets, #8 editable rows | clean, verified 2026-09-17 | ⚠️ **Lightsail runs an older build, and is now well behind** — as of 2026-09-14 it lacked PR #8/#9; PR #3 has since added the whole KPI/PM surface. `bash deploy/deploy.sh` to catch up. The live build has been behind `api.raaspal.com` since 2026-09-11 10:21 UTC — Flyway applied V39 on that start (`38 → 39`), container `(healthy)`, `/v3/api-docs` 200 through nginx+TLS. Case-report endpoints verified live 10:30 UTC with a real login: `sync/status` returned 61 tickets / 285 comments, `mk?refresh=true` returned 10 rows with Haiku-written Solution lines — so both `MONDAY_API_TOKEN` and `ANTHROPIC_API_KEY` are set (see [[history]] 2026-09-11b) |
+| [[RaasPal-Ops-frontend]] | `9011d22` on `main` (remote `RAAS-PAL/RaasPal-Ops-frontend`) — **PR #3 merged 2026-09-17 04:36Z** (`e070683`). Before it: PRs #13–#16 2026-09-14 (scroll pagination + one-batch fix, 69 robot photos, Solutions tab-ids fix); #11/#12 Solutions hub, borderless layout, no fake search; #10 confirmation dialogs; #9 Cleaning + Makro tabs; #8 row editing/adding, Regenerate, full-width Reports page; #4 the pending-case page, #6/#7 the PM planner | clean, verified 2026-09-17 | ✅ **live at `ops.raaspal.com`** (Vercel). Its `/api/v1/*` proxy route needs `BACKEND_PROXY_TARGET=https://api.raaspal.com` in the Vercel env — it was missing on 2026-09-11 and every login 502'd with "Proxy could not reach http://localhost:8080" until set |
+| [[RaasPal-RIMS]] | `44ed937` store-room statuses + packaging (2026-08-31) | not checked 2026-09-17 | ❓ Vercel state not verified |
 
-**PR #3 merged in both repos on 2026-09-17 04:36Z** (backend `3749c70`, frontend `e070683`),
-landing the RE KPI dashboard and the PM 52-week planner on `main` together.
+> **On the PR numbers.** PR #3 is numbered lower than the #8–#16 that merged before it because
+> `feat/re-kpi-dashboard` was opened on 2026-09-08 and sat open for nine days. It left a merge
+> commit in both repos; #8–#16 were squash-merged and left none. Both sets are real — verified
+> 2026-09-17 from `git log --merges` against `git@github.com:RAAS-PAL/…`.
 
 **Live data facts** (Supabase — one database, shared by local development and production):
 
-- **`main` now ships migrations up to V49** (`V49__add_csat_workbook_uploads.sql`). The
-  KPI/PM work that was pending on `feat/re-kpi-dashboard` as V38–V41 has merged and renumbered;
-  the PM planning tables shipped as **V39**, not the V42 the plan proposed.
-  `V34__add_case_report_tables.sql.txt` stays parked with a `.txt` suffix.
-- Flyway 10 refuses **out-of-order** migrations. The local Docker Postgres databases on
-  `localhost:5433` are behind (`pm_verify` at V42, `kpi_local` stale), so a fresh sync wants a
-  **throwaway database** rather than a migration of an existing one — see [[now]].
+- **Applied to production: V39.** Lightsail applied it on the 2026-09-11 start (`38 → 39`).
+  **`main` now ships migrations to V49**, so the next deploy applies **V40–V49** in one go —
+  ten migrations, including the whole KPI and CSAT surface. Review before deploying.
+- **The V38 collision is resolved, but not by the plan recorded here on 2026-09-11.** That plan
+  had `feat/re-kpi-dashboard`'s `add_case_ticket_sync` renumbered to V40 and its V39–V41 to
+  V41–V43. What actually shipped in PR #3 is **V45–V49**: `V45__add_case_ticket_sync.sql`,
+  `V46__add_ticket_type_and_action_dates.sql`, `V47__allow_unclassified_service_line.sql`,
+  `V48__add_case_ticket_category.sql`, `V49__add_csat_workbook_uploads.sql` — because V40–V44 were
+  taken by other work on `main` in the meantime. Production's V38 stayed the case-report one
+  throughout, as decided. **Next free migration: V50.**
+- Flyway 10 also refuses **out-of-order** migrations, which is what makes the local Docker
+  databases on `localhost:5433` bite: `pm_verify` is at V42 and `kpi_local` is stale, so a fresh
+  sync wants a **throwaway database** rather than a migration of an existing one — see [[now]].
 - `robot_inventory_temp` holds 92 rows — `IN_STOCK=45`, `DEMO=47`.
 - **`UNDER_REPAIR` and `RETURNED_FROM_CUSTOMER` are live but unused.** The states work end to end;
   nobody has set one yet, so the catalogue currently renders two bands rather than four.
@@ -362,6 +370,12 @@ photos → `window.print()` renders the exact Thai paper form (`รายงา�
 
 ### RE KPI Dashboard — three monday boards → live KPI page — 🚧 (built 2026-09-08 on `feat/re-kpi-dashboard`, V38–V41 pending on prod, not deployed)
 
+> ⚠️ **Migration numbers in this section are superseded — see the V38 collision note under Deployment
+> Snapshot.** V38 went to production as the case-report tables on 2026-09-11, so this branch's V38 must become
+> an `ALTER TABLE case_ticket` and — now that the PM planner holds V39 on `main` — its later migrations shift
+> to **V41–V43**, with the `ALTER` at **V40**. Do not start this branch against production until that rework
+> is done.
+
 Replaces the hand-built RE KPI deck. **Data source: monday.com** (Excel later, deferred). Backend and
 frontend branches share the name. Runbook: `RaasPal-Internal-Ops-backend/docs/kpi-local-testing.md`.
 
@@ -606,7 +620,17 @@ task is narrow enough that the default would be overkill — changing the env va
   actually being changed — because the picker used to post back the image endpoint's URL instead of the image.
   Worth confirming on Vercel before telling the warehouse the feature is available
 - [x] **Weekly performance report (preview only) — BUILT 2026-08-31.** [[ReportPeriod]] + `buildForWeek`, `week=YYYY-Www` on `/api/v1/reports/preview`, Monthly/Weekly toggle in [[ReportPreviewPanel]]. No migration. 134 tests pass; `npm run build` clean (see session 2026-08-31)
-- [ ] **Weekly *sending* is not built** — needs a period-aware [[ReportLink]] (`report_month` is `VARCHAR(7)`; widen it or add a period column — **V38 or later**), then email + the public token page. The `WEEKLY` cadence on `deployments` (V16) is still inert, and the customer bundle is still monthly-only
+- [x] **Daily Pending Case Report — MK sheet BUILT 2026-09-11, merged to `main` in PR #6.** V38 applied. Reports → Pending cases → MK pending generates the `Raw_Delivery` layout from the live delivery board; SLA 3 days in the six greater-Bangkok provinces / 5 elsewhere, Days inclusive. Reports freeze on first generation and a past date with no frozen run is **refused**, not fabricated. **Solution column is written by Haiku from the comment thread** ([[CaseSolutionAiService]]); a typed board value wins. 200 tests pass (see sessions 2026-09-11 and 2026-09-11b)
+- [x] **Cleaning and Makro sheets BUILT 2026-09-13** (PR #9 both repos). Cleaning = every open cleaning-board case except Makro and the airports; Makro = Makro only; SLA 3 days everywhere. Tabs beside MK pending. Expect Cleaning to be far larger than the team's 2-row sheet until the waiting-for-quotation / Sup-Status-Done question is settled (see session 2026-09-13b). Still unbuilt: รอ QT รายการซ่อม, RAW_AOTGA, Excel export.
+- [ ] **PR #6 review follow-ups** (not blocking): Haiku calls run inside `CaseReportRunService.rowsFor`'s transaction; two concurrent first generations race on `uq_case_report_run_day`; `DELETE /mk/run` can discard an unrecoverable past draft. Listed on the PR.
+- [x] **Daily case-report scheduler ON since 2026-09-11 ~10:40 UTC** — `CASE_REPORT_SYNC_ENABLED=true` in Lightsail's `deploy/api.env`, container recreated and the value confirmed inside it. Fires 06:15 Bangkok: snapshot both boards, then freeze the day's MK report. Nothing before 2026-09-11 exists. **First unattended run is 2026-09-12 06:15 — verify it** with `docker compose logs --since 24h | grep -E "Daily case sync|Froze the MK_PENDING"` or `GET /mk/run?asOf=2026-09-12` (`exists:true`). Render never had this property, so there is no second instance to double-run it.
+- [x] **Case report deployed 2026-09-11** — `main` (`cf04b84`) on Lightsail, V39 applied, app healthy. Never deploy a `main` older than `faa74a9` — it lacked V38 and crash-loops against prod. Local testing uses MODE B in the console's `.env.local`.
+- [x] **Case-report endpoints confirmed on the live box 2026-09-11 10:30 UTC** — `sync/status`: 12 open delivery / 49 open cleaning / 61 tickets / 285 comments / 61 history rows (all dated today, the first snapshot day); `mk?refresh=true`: 10 rows (12 open delivery cases, 10 of them MK-group), Solution in house style → Haiku live.
+- [x] **Pending cases tab is on the live console** — `feat/dailycasereport-page` was merged into the console's `main` as PR #4 (an earlier vault note saying it was unmerged was wrong). The branch's job is done; work from `main` now.
+- [ ] ⚠️ **PM "Sync from monday" hung on the live box 2026-09-11** — run `99c1fbfc…` for board 2048972900 sat `RUNNING` 5+ min with nothing read; the boards themselves are fine (331/272 parents, 2,774/1,578 subitems, parent links present — checked read-only from a local script). Cause: [[MondayApiClient]] is built with `RestClient.builder().build()` and has **no connect/read timeout**, so a stalled monday response blocks the request thread forever and the in-memory `running` flag refuses every later sync. Fix planned: timeouts on the client (shared by the 06:15 case sync); for the coworker: mark stale `RUNNING` rows FAILED on startup, run the sync off the request thread. Workaround: `PM_MONDAY_PAGE_SIZE=100` + `docker compose up -d`, then re-sync.
+- [ ] The Docker healthcheck hits `/actuator/health` every 30 s and gets 401, logging a WARN each time (~2,900 lines/day, capped by the json-file driver). Permit `/actuator/health` in [[SecurityConfig]] to quiet it.
+- [ ] **Case report Excel export** not built (`poi-ooxml` already in `pom.xml`); AOT and ALL_PENDING generators not built. AOTGA has no SLA column and needs AI over comment threads — do it last.
+- [ ] **Weekly *sending* is not built** — needs a period-aware [[ReportLink]] (`report_month` is `VARCHAR(7)`; widen it or add a period column — **V39 or later**, V38 is taken), then email + the public token page. The `WEEKLY` cadence on `deployments` (V16) is still inert, and the customer bundle is still monthly-only
 - [ ] **Backfill contract start dates per robot** under Tools → Robots — **1 of 163 deployed robots done as of 2026-08-20**. Until a robot has a date it reports whole months, so mid-month starts are still over-reported
 - [ ] ⏰ **BEFORE 2026-09-02 — rename two report labels** (decided 2026-08-19, deliberately deferred so July reports match what customers already received). `report.totalTasksCompleted` → "Total Tasks Run", `report.taskCompletionRate` → "Area Completion Rate", in `messages/en.json` + `messages/th.json`. **Frontend i18n only** — the backend `Ring("Task Completion Rate")` string is an internal key mapped by `RING_KEYS`. August reports send 08:00 on 2 Sep (`0 0 8 2 * *`), so it must land before then. See [[history]] 2026-08-19c
 - [x] **Backend deployed 2026-08-20** — verified live: `/customer-bundle/*` responds, `deployments.contract_start_date` present (V31 + V33 applied), MAIL_CC active. July reports sent.
