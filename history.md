@@ -3245,3 +3245,24 @@ mapping, since older entries in this log still say `robot-recommendation-api`.
 - [ ] Merged local `feat/re-kpi-dashboard` branches still exist in both repos.
 - [ ] Fix at source in monday: the 1,080 status-less Delivery visits, 49% of Delivery contracts
       with no province, ~1,330 Cleaning visits with no plan date.
+
+### Merging this entry surfaced a superseded plan (same day)
+Writing the above meant merging twelve upstream vault commits that had not been pulled first —
+the Lightsail deploy, the case-report work, and PRs #8–#16. `history.md` auto-merged; `index.md`
+conflicted on the Deployment Snapshot, and **both sides were kept**: upstream's deploy detail and
+V38-collision history, which had been verified live and which this session had no evidence
+against, plus the HEADs and migration state verified today.
+
+Two things the merge corrected:
+
+- **The V38 collision resolution recorded on 2026-09-11 is not what shipped.** That entry planned
+  for `feat/re-kpi-dashboard`'s `add_case_ticket_sync` to be renumbered **V40** and its V39–V41 to
+  become V41–V43. PR #3 actually shipped it as **V45–V49**, because V40–V44 were taken by other
+  work on `main` in the nine days the branch stayed open. The decision itself held — production's
+  V38 is still the case-report one. Next free migration is **V50**.
+- **Production is at V39; `main` ships to V49.** The next backend deploy applies ten migrations at
+  once. Lightsail's live build dates from 2026-09-11 and predates PR #8, #9 and #3.
+
+Also worth recording because it looked like a contradiction and was not: **PR #3 is numbered lower
+than the #8–#16 that merged before it** because the branch was opened on 2026-09-08 and sat open
+for nine days. It left a merge commit in both repos; #8–#16 were squash-merged and left none.
