@@ -5,10 +5,16 @@ clones one of them; this copy is here for anyone who opens the vault folder on i
 
 ## Read the vault before exploring the code
 
-Working memory for this project lives in the **`RaasPal-Vault`** repo, checked out beside this one
-(`../RaasPal-Vault` in the usual layout — if it is not there, clone it; it is private).
+Working memory for this project lives in the **`RaasPal-Vault`** repo, checked out beside this one:
 
-**Start with `../RaasPal-Vault/now.md`.** It is ~100 lines and carries the current HEADs, the
+```
+../RaasPal-Vault/now.md          # relative to this repo
+/Users/kusk/Desktop/RassPal/RaasPal-Vault/now.md   # where it sits on the original workspace
+```
+
+If it is not beside this repo, clone it (it is private) or ask where it lives — do not skip it.
+
+**Read `now.md` first.** It is ~100 lines and carries the current HEADs, the
 applied-vs-shipped migration version, the local databases, the active feature, the open items and
 the traps that have already cost people time. Reading it first is almost always cheaper and more
 accurate than re-deriving the same facts from files and git history.
