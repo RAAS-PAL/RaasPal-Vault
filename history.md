@@ -4185,3 +4185,145 @@ log `usage`. Held MK tickets are summarised twice (MK + On Hold).
 - [ ] 13-vs-9 pending-case row question with the staff; Render check.
 - [ ] Log Anthropic `usage` per call if a real monthly figure is wanted.
 ---
+
+---
+## Session: 2026-09-17b — Contract PDFs on the Contracts page, stored in S3; CSAT dead end; month labels
+
+**Date:** 2026-09-17
+**Tags:** #session #backend #frontend #database #deployment #config
+
+### Summary
+**Contract documents.** The staff want the signed contract PDF attached to each Contracts row. A row is a
+[[Deployment]] (one robot), but a contract usually covers several robots (IFS One Siam = eight rows, one
+start, one end), so the model is **one document, many deployments**: `contract_documents` (V50) keyed by
+customer, and `deployments.contract_document_id` pointing at it. Bytes are **not** in Postgres — a few
+hundred PDFs would eat the 500 MB Supabase quota the telemetry needs (the CSAT workbooks went to bytea in
+V49 because there are exactly four). They live in a **private S3 bucket `raaspal-customer-contracts`,
+ap-southeast-1**, in the same AWS account as Lightsail, behind a [[ContractDocumentStore]] interface:
+[[S3ContractDocumentStore]] when `CONTRACT_S3_BUCKET` is set, [[UnconfiguredContractDocumentStore]]
+(every call answers "not configured") when it is blank — keyed on the same property inverted, because
+`@ConditionalOnMissingBean` between two scanned components is a race. Credentials are a **dedicated IAM
+user `raaspal-contracts-api`** with policy `raaspal-contracts-bucket-access` (Put/Get/DeleteObject on the
+bucket's objects, ListBucket on the bucket — nothing else); key in `deploy/api.env` as
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `CONTRACT_S3_BUCKET` / `CONTRACT_S3_REGION`. Bucket has
+versioning on, SSE-S3, all public access blocked.
+
+[[ContractDocumentService]]: `attach(robotUnitId, …, applyToSameContract)` validates the bytes start
+`%PDF-` (not the extension, not the browser's content type), ≤ 20 MB, writes S3 **before** the row, then
+points the target and — when asked — every other active deployment of the same customer with the same
+start and end at it (`findActiveOnSameContract`); a replaced document nothing points at any more is
+deleted from table and bucket. `temporaryUrl` = 5-minute pre-signed GET with RFC 5987 filename.
+`remove` detaches one robot; the file goes with the last. Endpoints on [[RobotUnitController]]:
+`POST /{robotUnitId}/contract-document` (multipart, `applyToSameContract`), `GET …/url`, `DELETE …` —
+all `hasAnyRole('ADMIN','RAASPAL_TEAM')`. [[ContractExpiryResponse]]`.Contract` gained `document`
+([[ContractDocumentInfo]] with `sharedWith` count). Console [[ContractsPanel]]: *Contract PDF* column —
+Attach / filename-opens-new-tab / ×N shared badge / replace / remove; `AttachDialog` lists the sibling
+serials and pre-ticks "also attach". AWS SDK v2 `s3` via BOM 2.54.20. Six service tests on a map-backed
+store. Backend `c9c0375` deployed 08:32 UTC, **V50 applied**, store logged the bucket; frontend `d61e0f0`.
+
+**CSAT page dead end.** Live site showed "Could not load the KPIs — no CSAT survey workbooks uploaded yet;
+upload them on the CSAT page" and the CSAT page rendered its uploader only on success. Production's
+`kpi_csat_workbook` (V49) was empty, so the page could never get past the message; it worked for Kusk24
+because his DB already had test workbooks. [[CsatTab]] now renders `CsatWorkbookManager` under the error
+too; it already invalidates the CSAT query on upload. Frontend `0a181a1`.
+
+**Service Tickets month axis** "Sep 26" was `year: '2-digit'`; now month only, the year returning only
+when the axis spans more than one calendar year. Frontend `9011d22`.
+
+**Also this session:** the other session merged `origin/main` into `feat/contract-documents` (its own
+`CLAUDE.md`/`AGENTS.md` commits, `7ffe55d`/`b47c113`) before the ff-merge; checked with
+`git log 7f978c0..main` and `git show --stat` before deploying — docs only.
+
+**⚠️ AWS account:** the RaasTech account is on the Free Plan — **$107.76 credits, ends 2027-02-06 or when
+credits run out** (Lightsail ≈ $44/mo → ~2.5 months). Production `api.raaspal.com` and now the contract
+PDFs live in it. Raised with the user to take to the director this month.
+
+### Files Modified
+- Backend: V50; [[ContractDocument]] entity + repository; [[Deployment]] (`contractDocument`);
+  [[DeploymentRepository]] (`findActiveOnSameContract`, `countByContractDocumentId`);
+  [[ContractDocumentStore]] / [[S3ContractDocumentStore]] / [[UnconfiguredContractDocumentStore]];
+  [[ContractDocumentService]]; [[ContractDocumentInfo]]; [[ContractExpiryResponse]];
+  [[ContractExpiryService]]; [[RobotUnitController]]; [[application.properties]] (`app.contracts.s3.*`);
+  `pom.xml` (AWS BOM + `s3`); `ContractDocumentServiceTest`.
+- Frontend: [[ContractsPanel]] (`AttachDialog`, `DocumentCell`, notices, confirm), `lib/api.ts`
+  (`attachDocument`/`documentUrl`/`removeDocument`), `types/api.ts` (`ContractDocumentInfo`,
+  `ContractDocumentAttached`, `document` on `ExpiringContract`); [[CsatTab]]; `TicketCharts.tsx`.
+
+### Decisions Made
+- **S3, not Postgres bytea and not the Lightsail disk** — quota and durability respectively; Supabase
+  Storage was the runner-up, S3 chosen because the account and an IAM path already existed.
+- **Shared document, one upload** — the checkbox defaults to on; the server decides the set, the dialog
+  only previews the rows on screen.
+- **Pre-signed links, 5 minutes, never in email** — the expiry email was left without a link on purpose.
+- **PDF by magic bytes** — a renamed .docx would otherwise be stored as a contract.
+
+### Unresolved / Next Steps
+- [ ] First real upload on the live page; check the object appears under `contracts/<customer-id>/`.
+- [ ] Contract PDF also visible from the customer's deployment editor (Tools → Robots) — second step.
+- [ ] Orphaned-object sweep in the bucket if a delete after a row delete ever fails (logged as WARN).
+- [ ] The AWS Free Plan cliff — director.
+- [ ] `raaspal-api-preview` on `0.0.0.0:8081`, 26 h.
+---
+
+---
+## Session: 2026-09-17c — Contracts page shows every contract; PDF viewed in-page; same-contract query fix; no-data map parked
+
+**Date:** 2026-09-17
+**Tags:** #session #backend #frontend #deployment
+
+### Summary
+**Same-contract lookup broke in production.** The first live attach failed with Postgres
+`could not determine data type of parameter $3`: the JPQL `(:start IS NULL AND d.contractStartDate IS NULL)
+OR d.contractStartDate = :start` leaves the null-typed bind ambiguous under PgJDBC, which no test caught
+because the service tests mock the repository. Split into two typed queries on [[DeploymentRepository]]:
+`findActiveOnSameContract(customer, start, end)` and `findActiveOnSameContractWithoutStart(customer, end)`;
+[[ContractDocumentService]] picks by whether the target has a start date. One orphan object was left in the
+bucket by the failed attempt (S3 put precedes the DB write by design) — the user deletes it in the console.
+Backend `3f97f2d`.
+
+**All contracts, not only the ending-soon ones.** The staff want to attach a PDF the day a contract is
+signed, not 30 days before it ends. `GET /api/v1/robot-units/contracts?withinDays=` on
+[[RobotUnitController]] returns every active deployment as a contract row (`ContractExpiryResponse.All`),
+sorted soonest end first, no-end-date last; `daysToEnd` became nullable and [[OpsAlertEmailService]] prints
+"—" for it. [[ContractsPanel]] now defaults to **All** with chips All / Ending soon / Ended / No end date
+(with counts), the window select, and a search over customer/site/serial/filename. Backend `b7155d8`
+deployed; frontend `1bc9602`.
+
+**View PDF.** An explicit **View PDF** button per row (`a7b293e`), then — at the user's request for "a big box
+on top of the web" — an in-page viewer (`254603c`): `PdfViewer` modal, `max-w-6xl`, full height, iframe on
+the 5-minute pre-signed URL, header with filename, *Open in new tab*, ×; Esc / × / backdrop close; body
+scroll locked. Browsers set to download PDFs show a download prompt in the box — the new-tab link covers it.
+
+**No-data map — parked by the user ("we wait for the development of this feature").** Ask: a new page
+mapping customer sites as red (a robot with no data this month) / green dots, per branch and site, on top of
+the zero-data list. Finding: **nothing in the schema carries coordinates** — [[CustomerProfile]]`.branch` and
+[[Deployment]]`.site` are free text — so the blocker is how coordinates get in, not the map. Proposed:
+Leaflet + OpenStreetMap tiles (no key, no cost), `latitude`/`longitude` on the site (a `sites` table if
+several robots share one, which they do), a field in Tools → Robots, a one-off import from a spreadsheet or
+pasted Google Maps links, `GET /telemetry/zero-data/map?month=` grouping the existing zero-data list by
+site, sites without coordinates listed under the map as "not placed yet". Waiting on: import list vs
+staff-fill-in, rough site count, tab-in-No-data vs sidebar entry.
+
+### Files Modified
+- Backend: [[DeploymentRepository]] (two typed same-contract queries); [[ContractDocumentService]];
+  [[ContractExpiryResponse]] (`All`, nullable `daysToEnd`); [[ContractExpiryService]] (`all()`,
+  `toContract(d, today, windowDays)`); [[RobotUnitController]] (`GET /contracts`); [[OpsAlertEmailService]].
+- Frontend: [[ContractsPanel]] (All view, chips, search, `PdfViewer`, View PDF button), `lib/api.ts`
+  (`contractsApi.all`), `types/api.ts` (`ContractListResponse`, nullable end date / `daysToEnd`).
+
+### Decisions Made
+- **Two queries, not one nullable-parameter JPQL** — PgJDBC cannot type a null bind used in `IS NULL`.
+- **Default view is All** — the ending-soon list is a filter of it, computed with the same window so the two
+  agree on "soon".
+- **iframe over a pre-signed URL, not a PDF.js bundle** — the browser's own viewer gives zoom/search/print
+  for free; the fallback link handles download-configured browsers.
+- **Map feature waits for a coordinate source** — free-text site names would geocode wrong on a large share
+  of Thai sites; the staff-maintained field is the durable answer.
+
+### Unresolved / Next Steps
+- [ ] No-data site map — parked; needs the user's answers above before the plan.
+- [ ] Orphan object from the failed attach in `raaspal-customer-contracts` — user to delete in the console.
+- [ ] Contract PDF visible from Tools → Robots editor — second step, not started.
+- [ ] The AWS Free Plan cliff — director.
+- [ ] `raaspal-api-preview` on `0.0.0.0:8081` — still up.
+---

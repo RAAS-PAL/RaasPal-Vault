@@ -13,8 +13,8 @@
 
 | Folder | Was called | Stack | HEAD @ 2026-09-17 |
 |---|---|---|---|
-| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `7f978c0` on `main` |
-| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `9011d22` on `main` |
+| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `b7155d8` on `main` |
+| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `254603c` on `main` |
 | `RaasPal-RIMS` | `raaspal-rims` | Next.js 16 · inventory console | not checked this session |
 
 Also in the workspace, not code: `Info/` (source workbooks + PDFs), `Plan/`, `Report/`
@@ -40,12 +40,11 @@ empty state.
 
 ## Database
 
-- Highest migration on `main` is **V49** (`V49__add_csat_workbook_uploads.sql`).
-  **Production is still at V39.** The next backend deploy applies **V40–V49 in one go** — ten
-  migrations, the whole KPI and CSAT surface. Review before deploying; this is a prod change.
-- **Lightsail is well behind `main`.** The live build dates from 2026-09-11 and predates PR #8,
-  #9 and #3. `bash deploy/deploy.sh` to catch it up. `ops.raaspal.com` (Vercel, frontend) is
-  current; its proxy needs `BACKEND_PROXY_TARGET=https://api.raaspal.com` set in the Vercel env.
+- Highest migration on `main` is **V50** (`V50__add_contract_documents.sql`). **Production is at V50**
+  (verified 2026-09-17 — Lightsail deploy of `c9c0375`, then `b7155d8`).
+- **Lightsail runs `b7155d8` = `main`** (verified 2026-09-17). Deploy: ssh in, `git pull`, `cd deploy;
+  bash deploy.sh`; health at `https://api.raaspal.com/actuator/health`. `ops.raaspal.com` (Vercel)
+  deploys itself on push to `main`; its proxy needs `BACKEND_PROXY_TARGET=https://api.raaspal.com`.
 - ⚠️ **Local dev and production share one Supabase database.** Booting locally applies pending
   migrations to prod. Expand and contract: add, deploy, *then* drop.
 - ⚠️ **Never edit a committed `V*.sql`.** Flyway checksums it and refuses to start on mismatch —
@@ -95,7 +94,12 @@ Four monday boards, ids in `application.properties` under `app.pm.monday.*`:
 - [ ] `kpi_local` needs rebuilding (see above).
 - [ ] Merged local branches `feat/re-kpi-dashboard` still exist in both repos and can be deleted.
 - [ ] Wire the `pmComplete` KPI placeholder now that both features are on `main`.
-- [ ] Deploy the backend — Lightsail is ten migrations behind `main` (see above).
+- [ ] **No-data site map** — parked 2026-09-17 by the user. Blocker: no coordinates anywhere in the
+      schema (`branch`/`site` are free text). See [[history]] 2026-09-17c for the proposed design.
+- [ ] Orphan object in S3 `raaspal-customer-contracts` from the failed first attach — user deletes.
+- [ ] ⚠️ AWS account is on the Free Plan — $107.76 credits, ends 2027-02-06 or when spent; production
+      and the contract PDFs live in it. Director.
+- [ ] `raaspal-api-preview` still up on `0.0.0.0:8081`.
 
 ## Working rules that have cost time when ignored
 
