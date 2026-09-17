@@ -4357,6 +4357,13 @@ as a faint "alert sent / alert pending" line.
 
 Backend `bf69c62` deployed 10:33 UTC — **V51 applied**, healthy. Frontend `ae4511c` on Vercel.
 
+**Same day, after the user saw it:** "remove the pencil and maybe use the dropdown". The pill is now a
+`<select>` that saves on change (`applyToSameContract: true`, the notice says how many rows it covered);
+the status dialog is gone; the note has its own small `NoteDialog`, opened from the note text or a
+"+ note" link. Backend relaxed so a note may stand on a *Not contacted* row (a call-back reminder needs no
+call first): `NOT_CONTACTED` + blank note clears everything, `NOT_CONTACTED` + note keeps the note.
+Backend `96c015b` deployed 11:00 UTC; frontend `9cadf1d`.
+
 ### Files Modified
 - Backend: V51; [[Deployment]] (`renewal*`, `clearRenewalFollowup()`); [[ContractRenewalStatus]];
   [[ContractRenewalFollowup]]; `UpdateRenewalFollowupRequest`; [[ContractRenewalFollowupService]];

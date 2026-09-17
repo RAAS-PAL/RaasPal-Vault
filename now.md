@@ -13,8 +13,8 @@
 
 | Folder | Was called | Stack | HEAD @ 2026-09-17 |
 |---|---|---|---|
-| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `bf69c62` on `main` |
-| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `ae4511c` on `main` |
+| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `96c015b` on `main` |
+| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `9cadf1d` on `main` |
 | `RaasPal-RIMS` | `raaspal-rims` | Next.js 16 · inventory console | not checked this session |
 
 Also in the workspace, not code: `Info/` (source workbooks + PDFs), `Plan/`, `Report/`
@@ -42,7 +42,7 @@ empty state.
 
 - Highest migration on `main` is **V51** (`V51__add_contract_renewal_followup.sql`). **Production is at V51**
   (verified 2026-09-17 10:33 UTC — Lightsail deploy of `bf69c62`).
-- **Lightsail runs `bf69c62` = `main`** (verified 2026-09-17 10:33 UTC). Deploy: ssh in, `git pull`, `cd deploy;
+- **Lightsail runs `96c015b` = `main`** (verified 2026-09-17 11:00 UTC). Deploy: ssh in, `git pull`, `cd deploy;
   bash deploy.sh`; health at `https://api.raaspal.com/actuator/health`. `ops.raaspal.com` (Vercel)
   deploys itself on push to `main`; its proxy needs `BACKEND_PROXY_TARGET=https://api.raaspal.com`.
 - ⚠️ **Local dev and production share one Supabase database.** Booting locally applies pending
