@@ -4450,6 +4450,14 @@ panel by `key={report.id}` instead of the setState-in-effect (a lint error that 
 Backend `1d3a33a` deployed 04:26 UTC, healthy, no migration. Frontend `472a6a6`. Tests:
 `CmReportFromTicketTest` (3) + `CmReportApiTest` (11).
 
+**Same session, after the user saw the list working (79 tickets: 52 Cleaning / 27 Delivery):**
+- CM extraction model **Haiku → Sonnet 5** (`CM_MODEL` in [[ClaudeAiService]]) — the input is now a whole
+  comment thread, not a tidy paste. Backend `c77d82f` deployed 04:32 UTC.
+- **Printed reports keep the original logo colour.** The 15 Sep recolour (`ef769be`) replaced
+  `public/raas-pal-wordmark.png` and `raas-pal-logo.png` in place, so the CM, Monthly and Delivery report
+  views picked up the brand blue too. Originals restored from `ef769be^` as `raas-pal-wordmark-print.png`
+  / `raas-pal-logo-print.png`, used only by `components/report/*`. Website unchanged. Frontend `abca16f`.
+
 ### Files Modified
 - Backend: [[CmReportService]], [[CmReportController]], `CmReportRepository`, `cm/dto/CmTicketSummary`,
   `cm/dto/CmTicketDraft`, [[CaseTicketSyncService]] (constant visibility), `CmReportFromTicketTest`.

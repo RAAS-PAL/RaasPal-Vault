@@ -13,8 +13,8 @@
 
 | Folder | Was called | Stack | HEAD @ 2026-09-18 |
 |---|---|---|---|
-| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `1d3a33a` on `main` |
-| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `472a6a6` on `main` |
+| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `c77d82f` on `main` |
+| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `abca16f` on `main` |
 | `RaasPal-RIMS` | `raaspal-rims` | Next.js 16 · inventory console | not checked this session |
 
 Also in the workspace, not code: `Info/` (source workbooks + PDFs), `Plan/`, `Report/`
@@ -42,7 +42,9 @@ empty state.
 
 - Highest migration on `main` is **V51** (`V51__add_contract_renewal_followup.sql`). **Production is at V51**
   (verified 2026-09-17 10:33 UTC — Lightsail deploy of `bf69c62`).
-- **Lightsail runs `1d3a33a` = `main`** (verified 2026-09-18 04:26 UTC).
+- **Lightsail runs `c77d82f` = `main`** (verified 2026-09-18 04:32 UTC).
+- Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
+  `*-print.png` are the originals and are what the printed reports use. Do not recolour those.
 - ⚠️ **The ops email alert has never run in production**: `api.env` has no `OPS_ALERTS_*` and blank
   `MAIL_*` (checked 2026-09-18). "alert pending" on the Contracts page is literal. See [[history]] 2026-09-18. Deploy: ssh in, `git pull`, `cd deploy;
   bash deploy.sh`; health at `https://api.raaspal.com/actuator/health`. `ops.raaspal.com` (Vercel)
