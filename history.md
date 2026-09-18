@@ -4419,3 +4419,52 @@ contract already inside 90 days. Their call.
 - [ ] Enable the ops email on Lightsail (env above + SMTP credentials) — user's decision.
 - [ ] `raaspal-api-preview` still unhealthy on the box.
 ---
+
+---
+## Session: 2026-09-18b — CM report drafted from a synced monday ticket
+
+**Date:** 2026-09-18
+**Tags:** #session #backend #frontend #ai #deployment
+
+### Summary
+The Corrective Maintenance report used to start from a paste of the monday ticket. Now the *New report*
+tab opens on a **list of tickets** — the All Case group of the Cleaning (`3451717331`) and Delivery
+(`1647612496`) boards, exactly what [[CaseTicketSyncService]] already stores for the pending-case reports —
+and clicking one drafts the report. No new monday calls: [[CmReportService]]`.tickets(board, q)` reads
+[[CaseTicket]] rows with `isPresent = true`, adds the thread size from [[CaseTicketUpdate]] and a `hasReport`
+flag (`CmReportRepository.findExistingTicketNos`); `parseTicket(id)` assembles the columns as labelled lines
+plus the whole comment thread oldest-first with author and Bangkok time (`sourceTextOf`), runs the existing
+[[CmReportExtractionService]], then lets the ticket overrule the model on what it states outright: **Ticket
+No. = the case id** (monday item id), serial and model from the board, **officer = author of the latest
+comment** (user's call, "for now"), report date = the model's or else the latest comment's date. Endpoints
+on [[CmReportController]]: `GET /api/v1/cm-reports/tickets?board=&q=`, `POST
+/api/v1/cm-reports/tickets/{caseTicketId}/parse`. `CaseTicketSyncService.CLEANING_BOARD` made public.
+
+Console: new [[CmTicketPicker]] (board chips with counts, search, sticky-header scroll table, done mark,
+per-row spinner while drafting); [[CmReportPanel]] gains `ticket` / `pasteMode` state, a selected-ticket
+header with *Choose another ticket*, the assembled text in the source box (Extract fields re-runs on it),
+*Paste ticket text instead* as the fallback, `applyDraft()` shared by both parse paths and starting from
+an empty form for a ticket so a previous ticket's fields cannot leak. Reopening from history remounts the
+panel by `key={report.id}` instead of the setState-in-effect (a lint error that predated this work).
+
+Backend `1d3a33a` deployed 04:26 UTC, healthy, no migration. Frontend `472a6a6`. Tests:
+`CmReportFromTicketTest` (3) + `CmReportApiTest` (11).
+
+### Files Modified
+- Backend: [[CmReportService]], [[CmReportController]], `CmReportRepository`, `cm/dto/CmTicketSummary`,
+  `cm/dto/CmTicketDraft`, [[CaseTicketSyncService]] (constant visibility), `CmReportFromTicketTest`.
+- Frontend: [[CmTicketPicker]] (new), [[CmReportPanel]], `CmReportHistoryPanel` (key), `lib/api.ts`
+  (`cmReportApi.tickets`, `parseTicket`), `types/api.ts` (`CmTicketBoard`, `CmTicketSummary`, `CmTicketDraft`).
+
+### Decisions Made
+- **Read the synced tickets, not monday live** — same data the pending reports use, zero extra API load; the
+  list is as fresh as the 06:15 sync (or a *Regenerate from monday*). A "Sync now" button is the obvious
+  follow-up if staff draft reports the same day a ticket opens.
+- **Ticket facts overrule the model** — case id, serial, model and author are known; only the narrative
+  fields (cause, inspection, actions, test) are the extractor's.
+- **Client-side filtering** — ~100 rows; one fetch, instant search.
+
+### Unresolved / Next Steps
+- [ ] Staff feedback on extraction quality from comment threads; a "Sync now" button if freshness bites.
+- [ ] `CmReportHistoryPanel` debounce effect still trips `react-hooks/set-state-in-effect` (pre-existing).
+---
