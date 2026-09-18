@@ -4385,3 +4385,37 @@ Backend `96c015b` deployed 11:00 UTC; frontend `9cadf1d`.
 - [ ] `raaspal-api-preview` container is **unhealthy**, 28 h — stop it.
 - [ ] No-data site map — still parked (2026-09-17c).
 ---
+
+---
+## Session: 2026-09-18 — Contract ending-soon window 90 days; the ops email alert was never enabled
+
+**Date:** 2026-09-18
+**Tags:** #session #backend #frontend #config #deployment
+
+### Summary
+"Change the alert shown in this system to alert for 90 days." "Ending soon" was 30 days in four places; all
+moved to **90** together: [[ContractExpiryService]]`.DEFAULT_WINDOW_DAYS` (the robot list status and the
+`toContract` default), the two `withinDays` endpoint defaults on [[RobotUnitController]],
+`app.alerts.contract-window-days` in [[application.properties]] + [[OpsAlertScheduler]], and the
+[[ContractsPanel]] default (select now 90 / 60 / 30 / 180). Tests pass the window explicitly, unaffected.
+Backend `2815232` deployed 02:39 UTC, healthy; frontend `d5e8243`.
+
+**Finding while checking for an env override:** production `deploy/api.env` has **no `OPS_ALERTS_*`
+variables and blank `MAIL_USERNAME` / `MAIL_PASSWORD` / `MAIL_FROM`** — `app.alerts.enabled` defaults to
+false, so the morning contract-expiry email (and the monthly zero-data digest) has **never been sent** from
+Lightsail. Every "alert pending" on the Contracts page is literal. Told the user what to set (`OPS_ALERTS_ENABLED`,
+`OPS_ALERTS_CS_EMAIL`, the three `MAIL_*`) and that the first run is a one-off catch-up email listing every
+contract already inside 90 days. Their call.
+
+### Files Modified
+- Backend: [[ContractExpiryService]], [[RobotUnitController]], [[OpsAlertScheduler]], [[application.properties]].
+- Frontend: [[ContractsPanel]].
+
+### Decisions Made
+- **90 days, both copies** — the service constant and the scheduler property are kept equal by convention
+  (comment on the constant); no single source because the scheduler must stay env-overridable.
+
+### Unresolved / Next Steps
+- [ ] Enable the ops email on Lightsail (env above + SMTP credentials) — user's decision.
+- [ ] `raaspal-api-preview` still unhealthy on the box.
+---
