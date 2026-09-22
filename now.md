@@ -13,8 +13,8 @@
 
 | Folder | Was called | Stack | HEAD @ 2026-09-22 |
 |---|---|---|---|
-| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `639fed8` on `main` |
-| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `2a418ea` on `main` |
+| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `cc3f31e` on `main` |
+| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `72e4360` on `main` |
 | `RaasPal-RIMS` | `raaspal-rims` | Next.js 16 · inventory console | not checked this session |
 
 Also in the workspace, not code: `Info/` (source workbooks + PDFs), `Plan/`, `Report/`

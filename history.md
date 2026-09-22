@@ -4590,3 +4590,24 @@ The user asked for the 7 non-roster engineers to be deleted, not just deactivate
 ### Unresolved / Next Steps
 - [ ] Re-importing `RE_Rv. 001.xlsx` would create the 7 again as new engineers. Future workbooks should carry only the roster.
 ---
+
+---
+## Session: 2026-09-22f — RE queue limited to the All Case group; docs/ ignored
+
+**Date:** 2026-09-22
+**Tags:** #session #backend #config
+
+### Summary
+The user saw 330 tickets in the RE queue against 53 in monday's All Case group. The queue had been counting five groups (All Case, Check, AOTGA, AOTGA 30 Credit cases, Makro Project). The team treats every group except **All Case** as finished, whatever the status, so `app.re-assignment.active-groups` now defaults to `["All Case"]`, which applies to both suggestions and workload. YIP cases are never assigned to an RE; the Cleaning board has none, so this matters only for the Delivery board (Phase 2). The backend's `docs/` folder is now git-ignored: it holds reference files and customer lists, and nothing in the build reads it. Pushed `840266c` and `cc3f31e`; Lightsail deploy pending.
+
+### Files Modified
+- [[ReAssignmentProperties]] — `activeGroups` default is All Case only
+- `.gitignore` — `docs/`
+
+### Decisions Made
+- **All Case is the only live group:** the user's rule, since the other groups hold finished work.
+
+### Unresolved / Next Steps
+- [ ] Delivery board (Phase 2): exclude YIP tickets, and confirm which group(s) are live there.
+- [ ] Link the 8 engineers to monday and raise their max load.
+---
