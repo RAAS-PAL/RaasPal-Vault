@@ -4527,3 +4527,28 @@ The user decided to test live rather than on the preview. The app is internal, t
 - [ ] Confirm `flyway_schema_history` shows V53 on production.
 - [ ] Running mvn tests under JDK 25 needs `-Dnet.bytebuddy.experimental=true`, or a JDK 21 `JAVA_HOME`.
 ---
+
+---
+## Session: 2026-09-22c — RE assignment: batched writes, monday write-back on approve, busy days
+
+**Date:** 2026-09-22
+**Tags:** #session #backend #frontend #database
+
+### Summary
+Production testing surfaced a slow Refresh: it took 130 s against Supabase, well past the browser's 60 s limit. The workbook import commit timed out the same way. The cause was one round trip per row: composite-key entities triggered a SELECT before every INSERT, and the IDENTITY-keyed change log couldn't batch. The fix makes [[ReTicket]] and [[ReSkillLevel]] implement `Persistable`, writes the change log with one JDBC batch (flushing Hibernate first, which a Postgres test showed was needed for the FK), and raises the frontend timeouts. On a local Postgres, import now takes 1 s and Refresh about 13 s, nearly all of it monday. That fix was pushed as `aa5d0df` and `8fa50b8`. Then, at the user's request, and still suggest-then-approve (the Senior RE clicks Approve; nothing is fully automatic): (A) Approve now writes the engineer into the ticket's RE column on monday via [[ReMondayWriter]]. The column is re-read first; if monday refuses, nothing is saved; the approval is CONFIRMED immediately. Cancel empties the column only if it still shows exactly that engineer, otherwise it's left alone as `LEFT`. (B) Busy days: each ticket is staffed for its RE Action date when set and not past, otherwise today. Engineers are excluded that day if they're on leave, booked in the console (`re_schedule`, V54, entered with the approval or on the Engineers tab), or on an open On-Site ticket whose RE Action is that day. The board has no timeline column, only the single `date_1` RE Action date, which is why multi-day jobs are booked in the console.
+
+### Files Modified
+- [[RaasPal-Internal-Ops-backend]] — `V54__add_re_schedule_and_monday_write.sql`; [[ReSchedule]], [[ReScheduleRepository]], [[ReMondayWriter]]; [[ReAssignmentEvaluator]] (`Busy`, `forDate`, `busyDays`); [[ReQueueService]], [[ReAssignmentService]], [[ReEngineerService]] (bookings), [[ReAssignmentController]] (`/bookings`); [[application.properties]] `app.re-assignment.monday-write.enabled` (default true)
+- [[robot-recommendation-web-raaspal]] — queue: booking dates in Choose, "for <date>" chip, monday status, cancel on assigned rows; Engineers: Booked jobs card; History: monday column; en/th labels
+
+### Decisions Made
+- **Write monday before saving:** monday is the source of truth, so if it refuses, nothing is recorded, rather than leaving an approval monday doesn't show.
+- **Linking to monday is required to approve while writes are on:** without a monday id there is nothing to write.
+- **Only On-Site tickets block their RE Action day:** online work doesn't take an engineer out for the day (`busyServiceModes`).
+- **Local development writes to the real board too:** local shares prod monday. `RE_ASSIGNMENT_MONDAY_WRITE_ENABLED=false` turns it off.
+
+### Unresolved / Next Steps
+- [ ] Link every engineer to their monday person (required before any approval).
+- [ ] B (approve all) and C (scheduled fully automatic) were offered; the user chose to stop at suggest-and-approve for now.
+- [ ] Delivery board (Phase 2).
+---

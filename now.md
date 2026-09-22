@@ -30,7 +30,7 @@ landed on top: the PM company filter became an *include* list as well as an excl
 frontend now sends whichever list is shorter (header-limit fix), and the CSAT uploader shows an
 empty state.
 
-**Merged to `main` and deployed 2026-09-22** (ff to backend `639fed8`, frontend `2a418ea`): AutoXing performance report, fault poller (V52, off by default), AutoXing registration, and **RE Assignment** (`/re-assignment`, V53; emails and scheduled refresh off). See [[history]] 2026-09-22.
+**Merged to `main` and deployed 2026-09-22** (ff to backend `639fed8`, frontend `2a418ea`; perf fix `aa5d0df`/`8fa50b8`): AutoXing performance report, fault poller (V52, off by default), AutoXing registration, and **RE Assignment** (`/re-assignment`, V53; emails and scheduled refresh off). See [[history]] 2026-09-22.
 
 ## Build and run
 
@@ -42,7 +42,7 @@ empty state.
 
 ## Database
 
-- Highest migration on `main` is **V53** (`V53__add_re_assignment.sql`). **Production should be at V53** — Lightsail deploy of `639fed8` by the user 2026-09-22; health UP, not yet confirmed from `flyway_schema_history`.
+- Highest migration on `main` is **V54** (`V54__add_re_schedule_and_monday_write.sql`, local commit 2026-09-22, not yet pushed/deployed). **Production is at V53** (`aa5d0df` deployed by the user 2026-09-22; import preview works, so V53 is live).
 - **Lightsail runs `639fed8` = `main`** (user deploy 2026-09-22; `api.raaspal.com` health UP).
 - Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
   `*-print.png` are the originals and are what the printed reports use. Do not recolour those.
