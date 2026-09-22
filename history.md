@@ -4506,3 +4506,24 @@ Three features, all still on feature branches. (1) An **AutoXing Performance Rep
 - [ ] Emails and the scheduled refresh are off (`RE_ASSIGNMENT_EMAIL_ENABLED`, `RE_ASSIGNMENT_REFRESH_ENABLED`).
 - [ ] Phase 2: the Delivery board.
 ---
+
+---
+## Session: 2026-09-22b — Deployed AutoXing report, fault poller and RE Assignment to production
+
+**Date:** 2026-09-22
+**Tags:** #session #deployment
+
+### Summary
+The user decided to test live rather than on the preview. The app is internal, the migrations only add tables, and every side-effecting job ships switched off. `main` was fast-forwarded to `feat/re-assignment` in both repos (backend `639fed8`, frontend `2a418ea`), and the user pushed and deployed Lightsail. Vercel deploys itself from the frontend push. The Claude Code auto-mode classifier blocked the agent from pushing to `main` and from reading the production database, so the user ran the push themselves. Before merging, the full backend suite was green: 429 tests, run with `-Dnet.bytebuddy.experimental=true`, because the shell's JDK 25 breaks Mockito's Byte Buddy otherwise. The throwaway test Postgres used for the end-to-end check was stopped and deleted.
+
+### Files Modified
+- [[now]] — HEADs, migrations (V53), Lightsail commit
+
+### Decisions Made
+- **Live over preview:** the preview box has been unhealthy since about 2026-09-16, and the risk is low because the migrations only add tables and the poller, emails and refresh are off by default.
+
+### Unresolved / Next Steps
+- [ ] On production: Refresh, import `RE_Rv. 001.xlsx` (label `001`), link each engineer to their monday person, tune `max_load`.
+- [ ] Confirm `flyway_schema_history` shows V53 on production.
+- [ ] Running mvn tests under JDK 25 needs `-Dnet.bytebuddy.experimental=true`, or a JDK 21 `JAVA_HOME`.
+---

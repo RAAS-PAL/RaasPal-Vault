@@ -11,10 +11,10 @@
 
 ## Repos (renamed — older vault entries use the old names)
 
-| Folder | Was called | Stack | HEAD @ 2026-09-18 |
+| Folder | Was called | Stack | HEAD @ 2026-09-22 |
 |---|---|---|---|
-| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `c77d82f` on `main` |
-| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `abca16f` on `main` |
+| `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `639fed8` on `main` |
+| `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `2a418ea` on `main` |
 | `RaasPal-RIMS` | `raaspal-rims` | Next.js 16 · inventory console | not checked this session |
 
 Also in the workspace, not code: `Info/` (source workbooks + PDFs), `Plan/`, `Report/`
@@ -30,7 +30,7 @@ landed on top: the PM company filter became an *include* list as well as an excl
 frontend now sends whichever list is shorter (header-limit fix), and the CSAT uploader shows an
 empty state.
 
-**Unmerged, 2026-09-22:** `feat/autoxing-performance-report` (pushed; AutoXing report, fault poller V52, AutoXing registration) and `feat/re-assignment` stacked on it (local only; RE auto-assignment for Cleaning CM tickets, V53). See [[history]] 2026-09-22.
+**Merged to `main` and deployed 2026-09-22** (ff to backend `639fed8`, frontend `2a418ea`): AutoXing performance report, fault poller (V52, off by default), AutoXing registration, and **RE Assignment** (`/re-assignment`, V53; emails and scheduled refresh off). See [[history]] 2026-09-22.
 
 ## Build and run
 
@@ -42,10 +42,8 @@ empty state.
 
 ## Database
 
-- Highest migration on `main` is **V51** (`V51__add_contract_renewal_followup.sql`). **Production is at V51**
-  (verified 2026-09-17 10:33 UTC — Lightsail deploy of `bf69c62`).
-- ⚠️ **V52 (`robot_fault_event`) and V53 (`re_*` tables) exist only on feature branches** — not approved for prod; a local boot on those branches against Supabase would apply them (2026-09-22).
-- **Lightsail runs `c77d82f` = `main`** (verified 2026-09-18 04:32 UTC).
+- Highest migration on `main` is **V53** (`V53__add_re_assignment.sql`). **Production should be at V53** — Lightsail deploy of `639fed8` by the user 2026-09-22; health UP, not yet confirmed from `flyway_schema_history`.
+- **Lightsail runs `639fed8` = `main`** (user deploy 2026-09-22; `api.raaspal.com` health UP).
 - Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
   `*-print.png` are the originals and are what the printed reports use. Do not recolour those.
 - ⚠️ **The ops email alert has never run in production**: `api.env` has no `OPS_ALERTS_*` and blank
