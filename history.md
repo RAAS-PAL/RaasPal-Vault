@@ -4574,3 +4574,19 @@ The user supplied the team roster: 8 REs by employee code, with English nickname
 - [ ] Of 11 open Eastern Seaboard tickets, 9 are assigned. The other 2 need L3 because their Issue Level is blank (L2-Mid assumed), and Poom has L2 on that model.
 - [ ] With 8 engineers × max load 6, the local test queue suggested 16 tickets and showed 103 as ALL_BUSY. Raise `max_load` per engineer to fit the backlog.
 ---
+
+---
+## Session: 2026-09-22e — The 7 engineers outside the roster deleted (V56)
+
+**Date:** 2026-09-22
+**Tags:** #session #database
+
+### Summary
+The user asked for the 7 non-roster engineers to be deleted, not just deactivated. **V56** removes the engineers with no employee code who are inactive, and only when all 8 roster codes are present. It deletes their bookings, leave, skill levels, skill-change rows and assignments. The skill-change rows need the V53 append-only trigger switched off for that one statement and back on straight after; `re_event` audit rows are kept. On a local Postgres with the real import, V55 then V56 took 15 engineers to 8, with 0 orphans. The trigger is enabled again afterwards (a test DELETE is refused), and a re-run is harmless.
+
+### Decisions Made
+- **A new migration, not an edit to V55:** V55 was already committed, and committed migrations are never rewritten.
+
+### Unresolved / Next Steps
+- [ ] Re-importing `RE_Rv. 001.xlsx` would create the 7 again as new engineers. Future workbooks should carry only the roster.
+---
