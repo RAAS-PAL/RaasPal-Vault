@@ -4476,3 +4476,33 @@ Backend `1d3a33a` deployed 04:26 UTC, healthy, no migration. Frontend `472a6a6`.
 - [ ] Staff feedback on extraction quality from comment threads; a "Sync now" button if freshness bites.
 - [ ] `CmReportHistoryPanel` debounce effect still trips `react-hooks/set-state-in-effect` (pre-existing).
 ---
+
+---
+## Session: 2026-09-22 — AutoXing performance report, fault poller, and RE auto-assignment (Phase 1)
+
+**Date:** 2026-09-22
+**Tags:** #session #backend #frontend #database
+
+### Summary
+Three features, all still on feature branches. (1) An **AutoXing Performance Report** prototype for delivery robots, built from the raw `/task/v1.1/list` data plus daily stats and using the GS report logo. (2) An **AutoXing fault poller**. It is polling, not WebSocket: every 10 s by default, off unless `AUTOXING_FAULT_POLL_ENABLED`. It keeps an in-memory set of open faults and a fault must appear in two polls before it is recorded, written to `robot_fault_event` (V52). AutoXing robots register through the existing Tools → Robots tables (no new table), and registration checks the serial against the fleet. (3) **RE auto-assignment** for Cleaning-board CM tickets, from the Senior RE's skill matrix (levels L1–L4). It suggests an engineer and a manager approves; nothing is written back to monday. The Senior RE sets the RE on monday, and the next refresh marks the approval CONFIRMED, or SUPERSEDED if someone else was set. Engineers and skill levels live in tables (V53, `re_*`). They are editable in the console, can be imported from the workbook, and every change is recorded in an append-only log. E2E-tested against a throwaway Postgres 18 cluster with live monday data (counts only): 687 non-Done items, of which 331 are open in active groups. The queue shows 166 already assigned, 47 suggested, 46 manual (mostly the M50 family and non-CM case types) and 72 all busy. 15 engineers were imported (400 levels); 14 have a CM_CLEANING level.
+
+### Files Modified
+- [[RaasPal-Internal-Ops-backend]] `feat/autoxing-performance-report`: [[AutoxingApiClient]], [[AutoxingPerformanceService]], [[AutoxingFaultPollService]], [[AutoxingFaultPollScheduler]], `V52__add_robot_fault_event.sql`, [[RobotUnitService]] (AutoXing serial check), [[CustomerReportBundleService]] (cleaning reports skip delivery robots)
+- [[RaasPal-Internal-Ops-backend]] `feat/re-assignment` (`639fed8`): `V53__add_re_assignment.sql`, package `reassignment/` — [[ReAssignmentEvaluator]] (pure), [[ReTicketRefreshService]], [[ReSkillMatrixService]], [[ReSkillImportService]], [[ReQueueService]], [[ReAssignmentService]], [[ReAssignmentEmailService]], [[ReAssignmentController]], [[ReRefreshScheduler]]
+- [[robot-recommendation-web-raaspal]] `feat/re-assignment` (`2a418ea`): `/re-assignment` page with the tabs Queue, Engineers, Skill matrix, Model mapping and History; sidebar entry; `reAssignment` i18n (en/th)
+- Design doc: `docs/RE-assignment-design.md` (workspace root)
+
+### Decisions Made
+- **Suggest and approve, with no monday write-back in Phase 1:** a person stays accountable, and monday stays the source of truth.
+- **Required level comes from Issue Level** (L1→2, L2→3, L3→4). When it is blank, L2-Mid is assumed and the ticket is flagged; this affected 34% of tickets.
+- **Load is weighted by status**, as a share of each engineer's `max_load` (default 6). Each suggestion adds provisional load, so the queue spreads the work.
+- **Only models on the matrix are auto-suggested.** Board labels map to models through `re_model_mapping` (editable in the console); the M50 family stays manual.
+- **Did not reuse `case_ticket`**, because legacy reports read `is_present` as "in the All Case group".
+
+### Unresolved / Next Steps
+- [ ] Link each engineer to their monday person on the Engineers tab. None are linked yet, so current load and confirmation can't be seen.
+- [ ] Tune `max_load`: 72 tickets are ALL_BUSY, even before real load is visible.
+- [ ] Approve V52 and V53 for production before merging; push `feat/re-assignment`.
+- [ ] Emails and the scheduled refresh are off (`RE_ASSIGNMENT_EMAIL_ENABLED`, `RE_ASSIGNMENT_REFRESH_ENABLED`).
+- [ ] Phase 2: the Delivery board.
+---

@@ -30,6 +30,8 @@ landed on top: the PM company filter became an *include* list as well as an excl
 frontend now sends whichever list is shorter (header-limit fix), and the CSAT uploader shows an
 empty state.
 
+**Unmerged, 2026-09-22:** `feat/autoxing-performance-report` (pushed; AutoXing report, fault poller V52, AutoXing registration) and `feat/re-assignment` stacked on it (local only; RE auto-assignment for Cleaning CM tickets, V53). See [[history]] 2026-09-22.
+
 ## Build and run
 
 - Backend: **`sh mvnw`**, not `./mvnw`. Local profile: `sh mvnw spring-boot:run -Dspring-boot.run.profiles=local`.
@@ -42,6 +44,7 @@ empty state.
 
 - Highest migration on `main` is **V51** (`V51__add_contract_renewal_followup.sql`). **Production is at V51**
   (verified 2026-09-17 10:33 UTC — Lightsail deploy of `bf69c62`).
+- ⚠️ **V52 (`robot_fault_event`) and V53 (`re_*` tables) exist only on feature branches** — not approved for prod; a local boot on those branches against Supabase would apply them (2026-09-22).
 - **Lightsail runs `c77d82f` = `main`** (verified 2026-09-18 04:32 UTC).
 - Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
   `*-print.png` are the originals and are what the printed reports use. Do not recolour those.
