@@ -42,7 +42,7 @@ empty state.
 
 ## Database
 
-- Highest migration on `main` is **V54** (`V54__add_re_schedule_and_monday_write.sql`, local commit 2026-09-22, not yet pushed/deployed). **Production is at V53** (`aa5d0df` deployed by the user 2026-09-22; import preview works, so V53 is live).
+- Highest migration on `main` is **V55** (`V55__add_re_engineer_code_and_zone.sql`; V54+V55 local commits 2026-09-22, not yet pushed/deployed). **Production is at V53** (`aa5d0df` deployed by the user 2026-09-22; import preview works, so V53 is live).
 - **Lightsail runs `639fed8` = `main`** (user deploy 2026-09-22; `api.raaspal.com` health UP).
 - Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
   `*-print.png` are the originals and are what the printed reports use. Do not recolour those.

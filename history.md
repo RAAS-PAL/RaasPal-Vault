@@ -4552,3 +4552,25 @@ Production testing surfaced a slow Refresh: it took 130 s against Supabase, well
 - [ ] B (approve all) and C (scheduled fully automatic) were offered; the user chose to stop at suggest-and-approve for now.
 - [ ] Delivery board (Phase 2).
 ---
+
+---
+## Session: 2026-09-22d — RE roster of 8, employee codes, home zones (Poom → Eastern Seaboard)
+
+**Date:** 2026-09-22
+**Tags:** #session #backend #frontend #database
+
+### Summary
+The user supplied the team roster: 8 REs by employee code, with English nicknames. The skill-matrix import had created 15 engineers. **V55** adds `re_engineer.employee_code` (unique) and `home_zone`. It sets the roster's codes and English nicknames, matching each person by their unique Thai nickname from the import (Pan's full name is spelled differently in the workbook, so name matching would have missed him). It then deactivates the other 7, but only if all 8 were found, so a partial match changes nobody. Engineers are deactivated rather than deleted, because the append-only history references them. The statements were checked on a local Postgres against a real import: 8 active, 7 inactive, idempotent. Poom (RAAS-00200) is based in Chonburi, so the new **home zone** puts him in `EASTERN_SEABOARD`. The Cleaning board has no province column, so a ticket's zone comes from place names in its name, branch or project (`app.re-assignment.zones`). Score: +40 for an engineer based in the ticket's zone, −40 for an engineer based in a different zone than the ticket, so he's the last resort elsewhere. If he's busy or not qualified, the next best engineer is suggested as normal. Inactive engineers are now left out of the evaluation entirely, and hidden in the Engineers list (toggle) and the Skill matrix grid.
+
+### Files Modified
+- [[RaasPal-Internal-Ops-backend]] — `V55__add_re_engineer_code_and_zone.sql`; [[ReEngineer]], [[ReAssignmentProperties]] (`zones`, `zoneOf`), [[ReAssignmentEvaluator]] (`location` score component, inactive skipped), [[ReQueueService]], [[ReEngineerService]], [[ReAssignmentController]] (`/zones`)
+- [[robot-recommendation-web-raaspal]] — engineer form: employee code and "Based in"; zone chip on tickets and engineers; inactive hidden
+
+### Decisions Made
+- **Match the roster by Thai nickname, guarded by uniqueness and by all-8-found:** full names differ between the roster and the workbook.
+- **A zone is a keyword list, not a province lookup:** the board has no province column, and ticket names use towns (Sriracha, Laem Chabang, Amata) more often than provinces.
+
+### Unresolved / Next Steps
+- [ ] Of 11 open Eastern Seaboard tickets, 9 are assigned. The other 2 need L3 because their Issue Level is blank (L2-Mid assumed), and Poom has L2 on that model.
+- [ ] With 8 engineers × max load 6, the local test queue suggested 16 tickets and showed 103 as ALL_BUSY. Raise `max_load` per engineer to fit the backlog.
+---
