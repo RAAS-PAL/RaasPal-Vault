@@ -42,8 +42,8 @@ empty state.
 
 ## Database
 
-- Highest migration on `main` is **V56** (`V56__delete_re_engineers_outside_roster.sql`; V54-V56 pushed 2026-09-22, deploy pending on Lightsail). **Production is at V53** (`aa5d0df` deployed by the user 2026-09-22; import preview works, so V53 is live).
-- **Lightsail runs `639fed8` = `main`** (user deploy 2026-09-22; `api.raaspal.com` health UP).
+- Highest migration on `main` is **V56** (`V56__delete_re_engineers_outside_roster.sql`). **Production is at V56**: the queue shows English roster nicknames, which only V55 sets (user deploy 2026-09-22).
+- **Lightsail runs `50e72e4`**; `main` is `cc3f31e` (All Case only + docs/ ignored), deploy pending (2026-09-22).
 - Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
   `*-print.png` are the originals and are what the printed reports use. Do not recolour those.
 - ⚠️ **The ops email alert has never run in production**: `api.env` has no `OPS_ALERTS_*` and blank
