@@ -107,7 +107,7 @@ Four monday boards, ids in `application.properties` under `app.pm.monday.*`:
 - [ ] ⚠️ AWS account is on the Free Plan — $107.76 credits, ends 2027-02-06 or when spent; production
       and the contract PDFs live in it. Director.
 - [ ] `raaspal-api-preview` still up on `0.0.0.0:8081` — and **unhealthy** since ~2026-09-16. Stop it.
-- [ ] donation-website before any deploy: real database (JSON file won't work on Vercel), remove the self-approve "demo" verification button and the demo logins on `/login`, require `SESSION_SECRET` (it falls back to a hard-coded dev value). Added 2026-09-23.
+- [ ] donation-website — **now deployed to Vercel (2026-09-23), so these are live**: real database (JSON file won't work on Vercel; site likely errors on first load), remove the self-approve "demo" verification button and the demo logins on `/login`, require `SESSION_SECRET` (it falls back to a hard-coded dev value). Added 2026-09-23.
 
 ## Working rules that have cost time when ignored
 
