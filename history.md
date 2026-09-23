@@ -4637,3 +4637,18 @@ New repo in the workspace: `donation-website` (GitHub `RAAS-PAL/donation-website
 - [ ] Push the 8 commits when the user says so.
 - [ ] The coats photo is adult jackets on a rack (no free kids' coat photo found); swap if a better one turns up.
 ---
+
+---
+## Session: 2026-09-23b — donation-website redesigned on the RAAS PAL light theme
+
+**Date:** 2026-09-23
+**Tags:** #session #donation-website #design
+
+### Summary
+The user asked to replace Kindred's beige/terracotta/serif look with one RAAS PAL-derived design language. Tokens come from `RaasPal-Ops-frontend/app/globals.css` (light theme: `#f8fafc` ground, `#0f172a` text, `#e2e8f0` borders, brand `#00c9a7`). Brand teal fails as a button colour (2.1:1 with white text), so actions use **`#00806e`** (4.87:1) and links/active states **`#006b5c`**; `#00c9a7` is kept for highlights. Emerald `#047857` is only for success states. Geist only, 8–12px radii, near-flat shadows. Illustrations were recoloured to the same palette; the Wikimedia photos are unchanged. Behaviour is unchanged: 13 page checks and 18 pledge-lifecycle checks pass. 5 commits, `08b3b9e`..`697b6b9`, **not pushed**.
+
+### Decisions Made
+- **Token names kept, values remapped:** `accent` = teal, `forest` = deep teal, new `success`/`line-strong`/`brand`/`navy`, so every page moved at once.
+- **Avatars are one teal tint** and ignore the stored `avatarColor`; the field stays in the data model.
+- **"Offer help" uses a charcoal button, "Ask for help" teal**, instead of giving each side its own colour.
+---
