@@ -4611,3 +4611,29 @@ The user saw 330 tickets in the RE queue against 53 in monday's All Case group. 
 - [ ] Delivery board (Phase 2): exclude YIP tickets, and confirm which group(s) are live there.
 - [ ] Link the 8 engineers to monday and raise their max load.
 ---
+
+---
+## Session: 2026-09-23 — donation-website ("Kindred") prototype: two roles, split landing, redesign
+
+**Date:** 2026-09-23
+**Tags:** #session #donation-website #frontend
+
+### Summary
+New repo in the workspace: `donation-website` (GitHub `RAAS-PAL/donation-website`), a neighbour-to-neighbour **item** donation prototype called Kindred. Donees post item requests, verified donors pledge them; no money moves. Next.js 16 / React 19 / Tailwind v4, server actions, and a JSON file (`data/store.json`) as the database. This session:
+- **pnpm only.** A stray `npm install` had added `package-lock.json` and six UI deps to `package.json` without updating `pnpm-lock.yaml`, so those deps were never installed. Lockfile synced, `packageManager` pinned.
+- **Both roles finished.** A pledge now moves pledged → received or cancelled; donees mark deliveries received and close or reopen requests; donors cancel pledges not yet received. `/dashboard` differs by role.
+- **Split landing page** for logged-out visitors ("I need help" / "I want to give"), with signup and login that follow the chosen side (`/signup?role=`, `/login?as=`).
+- **UI redesign** using the ui-ux-pro-max skill: kept the terracotta + forest palette, added a Newsreader serif for headings, and fixed two WCAG contrast failures (white on the buttons, muted text on the background).
+- **Images.** Every image spot has a placeholder that switches to a real image when `imageUrl` / `avatarUrl` / `coverUrl` is set. The five seeded requests use CC0/public-domain photos from Wikimedia Commons (sources in `public/samples/photos/SOURCES.txt`); landing, hero and covers are SVG illustrations. Uploads are not connected.
+- Committed as 8 commits, `f0dfcba`..`019c109`, each type-checks on its own. **Not pushed.**
+
+### Traps found
+- The store caches the whole JSON in memory: deleting `data/store.json` does nothing until the dev server restarts, and a write before the restart puts the old data back.
+- Headless Chrome won't make a window narrower than ~500px, so `--window-size=390,…` screenshots look cut off. Use DevTools-protocol device emulation for real 390px checks.
+- The demo logins are listed on the `/login` page itself; they exist only in the local seeded store.
+
+### Unresolved / Next Steps
+- [ ] Before any deploy: real database, remove the self-approve verification button and demo logins, require `SESSION_SECRET`.
+- [ ] Push the 8 commits when the user says so.
+- [ ] The coats photo is adult jackets on a rack (no free kids' coat photo found); swap if a better one turns up.
+---
