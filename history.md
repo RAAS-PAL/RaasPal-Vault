@@ -4665,3 +4665,18 @@ Live search on the feed (`?q=`): every word must appear in the title, descriptio
 ### Traps found
 - A controlled search box synced to the URL must forget each query it pushed once the URL catches up. Remembering them all made "Clear filters" look like its own echo, and the box kept the old text.
 ---
+
+---
+## Session: 2026-09-23d — donation-website PR #1 merged; Vercel production deploy
+
+**Date:** 2026-09-23
+**Tags:** #session #donation-website #deploy
+
+### Summary
+PR #1 (`feat/feed-search`, all 15 commits) merged into `main` as merge commit `fa3a264`, so the small commits stay visible. Vercel builds every push: the preview and production deploys both succeeded. The deployment URLs sit behind Vercel SSO, so the live site could not be checked from the terminal. The branch `feat/feed-search` was kept.
+
+### Unresolved / Next Steps
+- [ ] **Probably broken on Vercel at runtime:** the store writes `data/store.json`, and Vercel's function filesystem is read-only, so the first page load is likely to fail. This is the "real database before deploy" item in [[now]], and it is now live, not hypothetical.
+- [ ] Delete `feat/feed-search` once no longer needed.
+- [ ] Vault `git pull` fails with "Cannot rebase onto multiple branches" even though `branch.main.*` looks normal; `git fetch && git rebase origin/main` works.
+---

@@ -16,7 +16,7 @@
 | `RaasPal-Internal-Ops-backend` | `robot-recommendation-api` | Spring Boot 3.4.5 · Java 21 | `cc3f31e` on `main` |
 | `RaasPal-Ops-frontend` | `robot-recommendation-web-raaspal` | Next.js 16 · React 19 · Tailwind v4 | `72e4360` on `main` |
 | `RaasPal-RIMS` | `raaspal-rims` | Next.js 16 · inventory console | not checked this session |
-| `donation-website` | — | Next.js 16 · React 19 · Tailwind v4 · **pnpm** · "Kindred" item-donation prototype | Local `main` `697b6b9` **not pushed** (origin/main still `b68e0ba`); `feat/feed-search` `e892d94` pushed → **PR #1** open with all 15 commits (2026-09-23) |
+| `donation-website` | — | Next.js 16 · React 19 · Tailwind v4 · **pnpm** · "Kindred" item-donation prototype | `fa3a264` on `main` — **PR #1 merged** 2026-09-23 (merge commit, 15 commits); Vercel production deployed, behind Vercel SSO |
 
 Also in the workspace, not code: `Info/` (source workbooks + PDFs), `Plan/`, `Report/`
 (**all non-code deliverables go here, not the Desktop**), `AWS/`.
