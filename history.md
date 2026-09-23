@@ -4652,3 +4652,16 @@ The user asked to replace Kindred's beige/terracotta/serif look with one RAAS PA
 - **Avatars are one teal tint** and ignore the stored `avatarColor`; the field stays in the data model.
 - **"Offer help" uses a charcoal button, "Ask for help" teal**, instead of giving each side its own colour.
 ---
+
+---
+## Session: 2026-09-23c — donation-website feed search, on branch `feat/feed-search`
+
+**Date:** 2026-09-23
+**Tags:** #session #donation-website #frontend
+
+### Summary
+Live search on the feed (`?q=`): every word must appear in the title, description, category, requester name or location. It updates as you type through a 250ms debounce and `router.replace`; `/` focuses it, Esc clears it, and it still works as a plain GET form. Filters keep the query. The toolbar stacks on phones, and dashboard action buttons drop under their text below `sm`. Checked at 390/768/1024px with no page-level horizontal scroll. Two commits on **`feat/feed-search`** (`f165be9`, `e892d94`), branched from `main` at `697b6b9`; not merged, not pushed.
+
+### Traps found
+- A controlled search box synced to the URL must forget each query it pushed once the URL catches up. Remembering them all made "Clear filters" look like its own echo, and the box kept the old text.
+---
