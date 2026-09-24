@@ -4705,3 +4705,19 @@ The user asked for MK's spare parts to be recorded separately, with two pages: a
 - [ ] After deploy: an admin sets MK's PIN on RIMS → MK access, and sends the link and PIN to MK separately.
 - [ ] The PIN lockout is in memory, so it resets when the backend restarts. Acceptable for now.
 ---
+
+---
+## Session: 2026-09-24b — RIMS lighter look, collapsible sidebar sections, MK link on the RIMS domain
+
+**Date:** 2026-09-24
+**Tags:** #session #frontend #deployment
+
+### Summary
+At the user's request, RIMS became brighter. The sidebar is now light: a new token `--bg-rail` (white in light mode, dark in dark mode), while `--bg-chrome` stays dark for the sign-in brand panel. The page background moved to #f8fafc, and colour is kept for accents. Primary buttons use the logo cyan #18BEE5 with dark navy text: white on that cyan is 2.2:1 and navy is 7.6:1. Cards, tiles and dialogs lost their outline for a soft `--shadow-card`; image frames and inputs keep theirs. The sidebar's "MK spare parts" and "Robot types" became click-to-open sections. The section holding the current page opens by itself, can still be closed while on that page, and the open/closed state is remembered in localStorage via `useSyncExternalStore`. MK's link on the MK access page is now always `https://rims.raaspal.com/mk` (override with `RIMS_PUBLIC_URL`). Pushed RIMS `main` → `3791152`, and Vercel served the new build about 45 s later. PIN add/delete was confirmed already admin-only (backend `hasRole('ADMIN')` plus RIMS `mkstock:pin`).
+
+### Decisions Made
+- **Navy text on the logo cyan, not white:** readability; the user can ask for white.
+
+### Unresolved / Next Steps
+- [ ] The sign-in page's left panel is still the dark brand panel; offered to lighten it.
+---
