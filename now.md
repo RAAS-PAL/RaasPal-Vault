@@ -33,6 +33,8 @@ empty state.
 
 **Merged to `main` and deployed 2026-09-22** (ff to backend `639fed8`, frontend `2a418ea`; perf fix `aa5d0df`/`8fa50b8`): AutoXing performance report, fault poller (V52, off by default), AutoXing registration, and **RE Assignment** (`/re-assignment`, V53; emails and scheduled refresh off). See [[history]] 2026-09-22.
 
+**Built 2026-09-24, not pushed:** **MK spare parts** on `feat/mk-spare-parts` (backend `8159a9a`, V57; RIMS `1d63105`). Staff pages in RIMS under `/mk-stock`; MK's read-only view at RIMS `/mk` behind a PIN. See [[history]] 2026-09-24.
+
 ## Build and run
 
 - Backend: **`sh mvnw`**, not `./mvnw`. Local profile: `sh mvnw spring-boot:run -Dspring-boot.run.profiles=local`.
@@ -44,7 +46,7 @@ empty state.
 
 ## Database
 
-- Highest migration on `main` is **V56** (`V56__delete_re_engineers_outside_roster.sql`). **Production is at V56**: the queue shows English roster nicknames, which only V55 sets (user deploy 2026-09-22).
+- Highest migration on `main` is **V56** (`V56__delete_re_engineers_outside_roster.sql`); **V57** (`mk_*` tables) exists only on `feat/mk-spare-parts` (2026-09-24). **Production is at V56**: the queue shows English roster nicknames, which only V55 sets (user deploy 2026-09-22).
 - **Lightsail runs `50e72e4`**; `main` is `cc3f31e` (All Case only + docs/ ignored), deploy pending (2026-09-22).
 - Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
   `*-print.png` are the originals and are what the printed reports use. Do not recolour those.

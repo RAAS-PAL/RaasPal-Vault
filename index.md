@@ -139,6 +139,13 @@ in the standalone `robot_inventory_temp` table ([[V30__add_robot_inventory_temp]
 
 ⚠️ **URL-length cliff (2026-09-17):** nginx request-line buffer 8 KB, Tomcat header limit now 16 KB. The PM company filter sends the shorter of `company=`/`excludeCompany=` for this reason; any new list-valued GET param must be designed with the same ceiling in mind.
 
+### MK Spare Parts — 🚧 built 2026-09-24 on `feat/mk-spare-parts` (backend + RIMS, not pushed)
+The spare parts RAAS PAL holds for MK, tracked **apart from** RAAS PAL's own `inventory_items` and from monday.
+- **Schema (V57):** `mk_spare_part` (cached `quantity_on_hand`), `mk_stock_movement` (append-only ledger via `re_append_only()`; `IN`/`OUT`/`ADJUST`; a reason is required for OUT and ADJUST; `balance_after >= 0`), `mk_access_pin` (BCrypt, one active), `mk_view_session` (SHA-256 of the token, tied to the PIN).
+- **Backend:** [[MkStockService]], [[MkAccessService]]; staff API `/api/v1/mk-stock/**` (ADMIN, INVENTORY_STAFF, RAASPAL_TEAM; PIN endpoints ADMIN only); MK's API `/api/v1/public/mk-stock/**` (permitAll at the security layer, `X-MK-View-Token` checked in [[MkViewController]]).
+- **RIMS:** staff pages `/mk-stock` (dashboard), `/mk-stock/parts` (+ `[id]`), `/mk-stock/access`; MK's pages `/mk` (PIN), `/mk/dashboard`, `/mk/stock` (+ `[id]`), outside the `(app)` login layout; cookie `mk_view` on path `/mk`, 12 h. RIMS capability `mkstock:write` is granted to every role (viewer included); `mkstock:pin` is admin only.
+- **Lockout:** 5 wrong PINs per client (RIMS forwards `X-MK-Client`) or 30 overall in 15 minutes lock the PIN screen for 15 minutes; this is in memory, so it resets on a backend restart.
+
 ### Contract renewal follow-up ✅ 2026-09-17d
 
 CS status per contract row — `NOT_CONTACTED` / `CONTACTED` / `WILL_RENEW` / `WILL_NOT_RENEW` + note + who/when — as `renewal_*` columns on `deployments` (V51). Belongs to the current term: cleared with `contract_expiry_alerted_at` when the end date changes. One call covers every robot on the same contract (`applyToSameContract`). `PUT /api/v1/robot-units/{id}/contract-followup`; [[ContractRenewalFollowupService]]. The expiry email carries it as a column.

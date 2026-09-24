@@ -4680,3 +4680,28 @@ PR #1 (`feat/feed-search`, all 15 commits) merged into `main` as merge commit `f
 - [ ] Delete `feat/feed-search` once no longer needed.
 - [ ] Vault `git pull` fails with "Cannot rebase onto multiple branches" even though `branch.main.*` looks normal; `git fetch && git rebase origin/main` works.
 ---
+
+---
+## Session: 2026-09-24 — MK spare parts: separate ledger, staff pages in RIMS, PIN-protected view for MK
+
+**Date:** 2026-09-24
+**Tags:** #session #backend #frontend #database
+
+### Summary
+The user asked for MK's spare parts to be recorded separately, with two pages: a dashboard analysing stock in and out, and a table of each item's stock. The internal team controls the stock; MK staff only view it, through a separate link with a PIN we create. Decisions (asked, then answered): the pages go in **RIMS**, not the ops console; **one shared MK PIN**; the stock list **starts empty**; **nothing is mixed** with RAAS PAL's other spare parts or with monday; and **every stock-out needs a written reason**. Built as separate tables in the same database (**V57**), not a separate database instance. Stock changes only by a movement (IN/OUT/ADJUST); the part row is locked while a movement is recorded, so stock can never go negative; and the ledger is append-only in the database. The PIN is stored as a BCrypt hash. A correct PIN returns a random token whose SHA-256 is stored against that PIN, so changing the PIN or turning access off ends every MK session at once. MK's view leaves out who recorded each movement. Verified against a local Postgres: 40 API and page checks (roles, reasons, negative stock, append-only trigger, PIN admin-only, weak PIN refused, lockout 5 then 429, token scope, staff JWT rejected as a view token, a PIN change killing sessions). Also 11 checks in headless Chrome driving the real forms (add part, stock out blocked without a reason, edit, set PIN, MK wrong and right PIN, sign out), plus screenshots. Full backend suite 439/439.
+
+### Files Modified
+- [[RaasPal-Internal-Ops-backend]] `feat/mk-spare-parts`: `V57__add_mk_spare_parts.sql`; package `mkstock/` — [[MkStockService]], [[MkAccessService]], [[MkStockController]], [[MkViewController]], entities and repositories; [[SecurityConfig]] (`/api/v1/public/mk-stock/**` permitAll); `MkStockServiceTest` (6)
+- `raaspal-rims` `feat/mk-spare-parts`: `lib/mk-stock.ts`, `lib/mk-actions.ts`, `lib/mk-viewer.ts`, `components/mk/*`, `app/(app)/mk-stock/*`, `app/mk/*`; `lib/rbac.ts` (`mkstock:write`, `mkstock:pin`); `lib/backend.ts` (extra headers); sidebar group "MK spare parts"
+
+### Decisions Made
+- **RIMS over the ops console:** RIMS is the inventory console, keeps its session server-side in an httpOnly cookie, and already has the ledger pattern; a customer-facing PIN page shouldn't sit inside the service console.
+- **Separate tables, not a separate database:** full isolation from RAAS PAL stock without a second system to host, back up and migrate.
+- **Opaque view tokens, not JWTs:** a stored hash tied to the PIN makes revocation instant and needs no new signing secret.
+- **Every internal role may move MK stock** (the user: "the internal team account should be able to control the stock"); only admins set the PIN.
+
+### Unresolved / Next Steps
+- [ ] Push `feat/mk-spare-parts` in both repos (awaiting the user's yes), merge, and deploy the backend (V57).
+- [ ] After deploy: an admin sets MK's PIN on RIMS → MK access, and sends the link and PIN to MK separately.
+- [ ] The PIN lockout is in memory, so it resets when the backend restarts. Acceptable for now.
+---
