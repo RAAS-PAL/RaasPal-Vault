@@ -4806,3 +4806,29 @@ The user ran the Lightsail deploy and set `REPORT_WEEKLY_SCHEDULER_ENABLED=true`
 - [ ] Optionally send 14–20 Sep by hand from Manage automation → Weekly before the first automatic run (Mon 2026-09-28 08:00).
 - [ ] `raaspal-api-preview` is still up and unhealthy on the box (existing open item).
 ---
+
+---
+## Session: 2026-09-25d — Team Dashboard: report cadence counts; AI solution link removed
+
+**Date:** 2026-09-25
+**Tags:** #session #frontend
+
+### Summary
+The Team Dashboard gets a **Report cadence** row — Monthly / Weekly / Off — under the delivery tiles, linking to Tools → Robots. Each tile counts deployed robots with that setting (matching what Tools → Robots shows) and says how many customers the email actually reaches. The two differ sharply: in production **17 of the 19 Monthly robots are delivery robots**, which the cleaning report email skips whatever their setting, so Monthly reaches **2 customers**; Weekly is 1 robot / 1 customer (Pandora); Off is 165. The "Generate a robot solution" link was removed from the dashboard at the user's request — the AI recommendation flow is not in use. Offered and **declined**: hiding Solutions or Robot Catalog in the sidebar, and removing the "How automated delivery works" strip (whose step 4 still says the scheduler emails everyone on the 2nd, no longer true). `tsc` and `eslint` clean; the dashboard was rendered locally and checked for the new heading and the absent link.
+
+### Files Modified
+- [[ReportCadenceStats]] (`robot-recommendation-web-raaspal/components/ReportCadenceStats.tsx`) — **new.** Counts from the shared `['robot-units']` query, so a change in Tools → Robots updates it
+- [[ReportDeliveryStats]] — `StatTile` exported for reuse
+- `app/[locale]/page.tsx` — cadence row added; AI solution link removed
+- `types/api.ts` — `robotType` declared on `RobotUnitResponse` (the API always sent it)
+- `messages/en.json`, `messages/th.json` — `teamDashboard.cadence`
+
+### Decisions Made
+- **Robots in the number, customers in the hint:** the number must match Tools → Robots; the hint tells the truth about who is emailed.
+- **Remove, don't delete:** only the dashboard link; the Solutions pages, sidebar entry and `solutionShortcut` strings stay.
+
+### Unresolved / Next Steps
+- [ ] Push `feat/dashboard-report-cadence` (frontend, 3 commits) — awaiting the user's yes; Vercel deploys on push to `main`.
+- [ ] The "How automated delivery works" strip is out of date (monthly scheduler is off; weekly not mentioned) — kept by the user's choice.
+- [ ] 17 delivery robots are set to Monthly but never emailed — harmless, but misleading in Tools → Robots.
+---
