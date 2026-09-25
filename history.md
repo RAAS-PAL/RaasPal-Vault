@@ -4761,3 +4761,27 @@ Also diagnosed this session, no code change: a robot showing **0 tasks for Augus
 - [ ] **Verify `MAIL_*` in production `api.env`** — blank on 2026-09-18, which would stop every report email, manual or automatic.
 - [ ] Run the first week by hand from Manage automation → Weekly before relying on Monday.
 ---
+
+---
+## Session: 2026-09-25b — Weekly reports: backend pushed to main, deploy handed to the user
+
+**Date:** 2026-09-25
+**Tags:** #session #deployment #config
+
+### Summary
+The user asked to deploy both. Backend `feat/weekly-report-send` was fast-forwarded into `main` and pushed (`8159a9a..d00af7f`); that push also carried two MK commits another session had left unpushed (`d18bcfa` PIN reset, `5faf877` photos, **V58**) — shipping them was unavoidable, since Flyway refuses out-of-order versions and V59/V60 cannot be applied ahead of V58. Both were in the 459-test run. The Lightsail deploy and the `REPORT_WEEKLY_SCHEDULER_ENABLED` change in `api.env` were **blocked by the agent's permission check** and left for the user. The frontend branch was deliberately **not** pushed: Vercel deploys on push to `main`, and the new Weekly buttons would call a backend that does not yet accept `week`.
+
+Checked on the box while there: production runs `8159a9a` (built 2026-09-24), is healthy, the monthly scheduler is `false` as policy requires, and — correcting [[now]] — **`MAIL_*` is set** (it was blank on 2026-09-18). `raaspal-api-preview` is still up and unhealthy.
+
+### Files Modified
+- [[now]] — migration and Lightsail lines corrected, `MAIL_*` corrected, weekly go-live item updated
+
+### Decisions Made
+- **Backend before frontend:** the frontend waits for the backend deploy.
+- **Ship V58 with V59/V60:** required by Flyway ordering, not a choice.
+
+### Unresolved / Next Steps
+- [ ] User: `cd ~/RaasPal-Internal-Ops-backend/deploy && bash deploy.sh` on Lightsail (applies V58–V60).
+- [ ] Then push frontend `feat/weekly-report-send` → `main`.
+- [ ] Then `REPORT_WEEKLY_SCHEDULER_ENABLED=true` in `api.env` + redeploy, and set Pandora's robot to Weekly.
+---

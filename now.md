@@ -47,12 +47,12 @@ empty state.
 
 ## Database
 
-- Highest migration on `main` is **V57** (`V57__add_mk_spare_parts.sql`); V56 (`V56__delete_re_engineers_outside_roster.sql`) was the last one deployed; **V57** (`mk_*` tables) is on `main` since 2026-09-24, applied on the next Lightsail deploy. **Production is at V56**: the queue shows English roster nicknames, which only V55 sets (user deploy 2026-09-22).
-- **Lightsail runs `50e72e4`**; `main` is `cc3f31e` (All Case only + docs/ ignored), deploy pending (2026-09-22).
+- Highest migration on `main` is **V60** (`V60__widen_customer_report_link_period_key.sql`; V58 MK photo, V59/V60 weekly reports — all pushed 2026-09-25, **not deployed**). **Production is at V57**: its container was built 2026-09-24 from `8159a9a`, which carries V57 (checked on the box 2026-09-25).
+- **Lightsail runs `8159a9a`** (server checkout + container built 2026-09-24 03:22Z, checked 2026-09-25); `main` is `d00af7f` (MK PIN reset + photo, weekly reports) — **deploy pending**.
 - Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
   `*-print.png` are the originals and are what the printed reports use. Do not recolour those.
 - ⚠️ **The ops email alert has never run in production**: `api.env` has no `OPS_ALERTS_*` and blank
-  `MAIL_*` (checked 2026-09-18). "alert pending" on the Contracts page is literal. See [[history]] 2026-09-18. Deploy: ssh in, `git pull`, `cd deploy;
+  `MAIL_*` (checked 2026-09-18) — **`MAIL_USERNAME`/`MAIL_PASSWORD`/`MAIL_FROM`/`MAIL_CC` are now set (checked 2026-09-25)**; `OPS_ALERTS_*` not re-checked. "alert pending" on the Contracts page is literal. See [[history]] 2026-09-18. Deploy: ssh in, `git pull`, `cd deploy;
   bash deploy.sh`; health at `https://api.raaspal.com/actuator/health`. `ops.raaspal.com` (Vercel)
   deploys itself on push to `main`; its proxy needs `BACKEND_PROXY_TARGET=https://api.raaspal.com`.
 - ⚠️ **Local dev and production share one Supabase database.** Booting locally applies pending
@@ -60,7 +60,7 @@ empty state.
 - ⚠️ **Never edit a committed `V*.sql`.** Flyway checksums it and refuses to start on mismatch —
   breaks the next deploy with no local symptom. Add a new migration.
 - Flyway 10 also refuses **out-of-order** versions, which is what makes the local DBs below bite.
-- **V59 and V60 are claimed** by backend branch `feat/weekly-report-send` (not on `main` yet): they widen `report_month` on `report_links`, `report_sends` and `customer_report_links` to `VARCHAR(8)` for ISO week keys. Next free number is **V61**. (2026-09-25)
+- V59/V60 (weekly report keys, `report_month` → `VARCHAR(8)` on `report_links`, `report_sends`, `customer_report_links`) are on `main` since 2026-09-25. Next free number is **V61**.
 
 **Local Docker Postgres `raaspal-kpi-pg` on `localhost:5433`:**
 
@@ -112,7 +112,7 @@ Four monday boards, ids in `application.properties` under `app.pm.monday.*`:
       and the contract PDFs live in it. Director.
 - [ ] `raaspal-api-preview` still up on `0.0.0.0:8081` — and **unhealthy** since ~2026-09-16. Stop it.
 - [ ] donation-website — **now deployed to Vercel (2026-09-23), so these are live**: real database (JSON file won't work on Vercel; site likely errors on first load), remove the self-approve "demo" verification button and the demo logins on `/login`, require `SESSION_SECRET` (it falls back to a hard-coded dev value). Added 2026-09-23.
-- [ ] **Weekly reports (Pandora) — built, not live.** Branch `feat/weekly-report-send` in backend + frontend, unpushed. To go live: merge, deploy (applies V59/V60), add `REPORT_WEEKLY_SCHEDULER_ENABLED=true` to `api.env`, set Pandora's robot to **Weekly** in Tools → Robots. Needs working `MAIL_*` in `api.env` — last seen blank (2026-09-18). See [[history]] 2026-09-25. Added 2026-09-25.
+- [ ] **Weekly reports (Pandora) — backend on `main` (`d00af7f`), not deployed; frontend branch `feat/weekly-report-send` unpushed on purpose** — push it only *after* the backend deploy, since Vercel deploys on push. Then `REPORT_WEEKLY_SCHEDULER_ENABLED=true` in `api.env` (currently unset) and set Pandora's robot to **Weekly**. See [[history]] 2026-09-25. Added 2026-09-25.
 
 ## Working rules that have cost time when ignored
 
