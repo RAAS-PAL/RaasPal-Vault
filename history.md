@@ -4785,3 +4785,24 @@ Checked on the box while there: production runs `8159a9a` (built 2026-09-24), is
 - [ ] Then push frontend `feat/weekly-report-send` → `main`.
 - [ ] Then `REPORT_WEEKLY_SCHEDULER_ENABLED=true` in `api.env` + redeploy, and set Pandora's robot to Weekly.
 ---
+
+---
+## Session: 2026-09-25c — Weekly reports deployed: backend on Lightsail, frontend on Vercel
+
+**Date:** 2026-09-25
+**Tags:** #session #deployment
+
+### Summary
+The user ran the Lightsail deploy and set `REPORT_WEEKLY_SCHEDULER_ENABLED=true` in `api.env`. Verified afterwards: the box runs `d00af7f`, healthy; Flyway went 57 → 60 in one start (V58 MK photo, V59, V60) — the first time V59/V60 ran against real Postgres, and they applied cleanly; every report endpoint (preview, links, email, delivery run/send/history) takes `week`; the monthly switch is still `false`. Only then was the frontend fast-forwarded and pushed (`72e4360..61f159d`); Vercel went live about 30 s later, confirmed by the cache age resetting and the new "Automated weekly report delivery" text appearing in the live Reports bundle. Merged local feature branches were deleted in both repos.
+
+### Files Modified
+- [[now]] — production at V60 on `d00af7f`, frontend `61f159d` live, weekly go-live item narrowed to the one remaining step
+
+### Decisions Made
+- **Backend verified before the frontend was pushed**, since Vercel deploys on push and the new UI needs the new API.
+
+### Unresolved / Next Steps
+- [ ] Set Pandora's robot to **Weekly** in Tools → Robots — until then the Monday job finds no one to send to.
+- [ ] Optionally send 14–20 Sep by hand from Manage automation → Weekly before the first automatic run (Mon 2026-09-28 08:00).
+- [ ] `raaspal-api-preview` is still up and unhealthy on the box (existing open item).
+---

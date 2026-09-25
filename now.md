@@ -47,8 +47,8 @@ empty state.
 
 ## Database
 
-- Highest migration on `main` is **V60** (`V60__widen_customer_report_link_period_key.sql`; V58 MK photo, V59/V60 weekly reports — all pushed 2026-09-25, **not deployed**). **Production is at V57**: its container was built 2026-09-24 from `8159a9a`, which carries V57 (checked on the box 2026-09-25).
-- **Lightsail runs `8159a9a`** (server checkout + container built 2026-09-24 03:22Z, checked 2026-09-25); `main` is `d00af7f` (MK PIN reset + photo, weekly reports) — **deploy pending**.
+- Highest migration on `main` is **V60** (`V60__widen_customer_report_link_period_key.sql`). **Production is at V60**: V58, V59 and V60 applied 2026-09-25 02:50Z ("Successfully applied 3 migrations", deploy log). Next free number is **V61**.
+- **Lightsail runs `d00af7f`** = backend `main` (deployed by the user 2026-09-25 02:49Z; checked on the box). Frontend `main` is `61f159d`, live on `ops.raaspal.com` since 2026-09-25 (new bundle confirmed).
 - Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
   `*-print.png` are the originals and are what the printed reports use. Do not recolour those.
 - ⚠️ **The ops email alert has never run in production**: `api.env` has no `OPS_ALERTS_*` and blank
@@ -60,7 +60,7 @@ empty state.
 - ⚠️ **Never edit a committed `V*.sql`.** Flyway checksums it and refuses to start on mismatch —
   breaks the next deploy with no local symptom. Add a new migration.
 - Flyway 10 also refuses **out-of-order** versions, which is what makes the local DBs below bite.
-- V59/V60 (weekly report keys, `report_month` → `VARCHAR(8)` on `report_links`, `report_sends`, `customer_report_links`) are on `main` since 2026-09-25. Next free number is **V61**.
+- V59/V60 widened `report_month` to `VARCHAR(8)` on `report_links`, `report_sends`, `customer_report_links`: the columns now hold a *period key*, `2026-08` or `2026-W38`.
 
 **Local Docker Postgres `raaspal-kpi-pg` on `localhost:5433`:**
 
@@ -112,7 +112,7 @@ Four monday boards, ids in `application.properties` under `app.pm.monday.*`:
       and the contract PDFs live in it. Director.
 - [ ] `raaspal-api-preview` still up on `0.0.0.0:8081` — and **unhealthy** since ~2026-09-16. Stop it.
 - [ ] donation-website — **now deployed to Vercel (2026-09-23), so these are live**: real database (JSON file won't work on Vercel; site likely errors on first load), remove the self-approve "demo" verification button and the demo logins on `/login`, require `SESSION_SECRET` (it falls back to a hard-coded dev value). Added 2026-09-23.
-- [ ] **Weekly reports (Pandora) — backend on `main` (`d00af7f`), not deployed; frontend branch `feat/weekly-report-send` unpushed on purpose** — push it only *after* the backend deploy, since Vercel deploys on push. Then `REPORT_WEEKLY_SCHEDULER_ENABLED=true` in `api.env` (currently unset) and set Pandora's robot to **Weekly**. See [[history]] 2026-09-25. Added 2026-09-25.
+- [ ] **Weekly reports are live (2026-09-25)** — `REPORT_WEEKLY_SCHEDULER_ENABLED=true` on Lightsail, Monday 08:00 Bangkok. **Nothing sends until a robot is set to Weekly**: set Pandora's robot in Tools → Robots. First automatic run Mon 2026-09-28 for 21–27 Sep. See [[history]] 2026-09-25. Added 2026-09-25.
 
 ## Working rules that have cost time when ignored
 
