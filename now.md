@@ -43,6 +43,7 @@ empty state.
   "X is not a function" errors in unrelated files. Type-check with `npx tsc --noEmit`.
   A plain restart does not clear it; Turbopack's cache outlives the process. `rm -rf .next`.
 - donation-website: `pnpm install && pnpm dev` (port 3000). Its database is `data/store.json`, git-ignored, seeded on first read and **cached in memory** — to reseed, delete it *and* restart the dev server. See [[history]] 2026-09-23.
+- ⚠️ **Backend tests on the Windows machine: set `JAVA_HOME` to JDK 21** (`C:/Program Files/Java/jdk-21.0.10`). The default `java` is 25, where Mockito cannot mock concrete classes and every test class with a `@MockitoBean` on a service fails to load its context — a whole class of errors that looks like your change broke it. (2026-09-25)
 
 ## Database
 
@@ -59,6 +60,7 @@ empty state.
 - ⚠️ **Never edit a committed `V*.sql`.** Flyway checksums it and refuses to start on mismatch —
   breaks the next deploy with no local symptom. Add a new migration.
 - Flyway 10 also refuses **out-of-order** versions, which is what makes the local DBs below bite.
+- **V59 and V60 are claimed** by backend branch `feat/weekly-report-send` (not on `main` yet): they widen `report_month` on `report_links`, `report_sends` and `customer_report_links` to `VARCHAR(8)` for ISO week keys. Next free number is **V61**. (2026-09-25)
 
 **Local Docker Postgres `raaspal-kpi-pg` on `localhost:5433`:**
 
@@ -110,6 +112,7 @@ Four monday boards, ids in `application.properties` under `app.pm.monday.*`:
       and the contract PDFs live in it. Director.
 - [ ] `raaspal-api-preview` still up on `0.0.0.0:8081` — and **unhealthy** since ~2026-09-16. Stop it.
 - [ ] donation-website — **now deployed to Vercel (2026-09-23), so these are live**: real database (JSON file won't work on Vercel; site likely errors on first load), remove the self-approve "demo" verification button and the demo logins on `/login`, require `SESSION_SECRET` (it falls back to a hard-coded dev value). Added 2026-09-23.
+- [ ] **Weekly reports (Pandora) — built, not live.** Branch `feat/weekly-report-send` in backend + frontend, unpushed. To go live: merge, deploy (applies V59/V60), add `REPORT_WEEKLY_SCHEDULER_ENABLED=true` to `api.env`, set Pandora's robot to **Weekly** in Tools → Robots. Needs working `MAIL_*` in `api.env` — last seen blank (2026-09-18). See [[history]] 2026-09-25. Added 2026-09-25.
 
 ## Working rules that have cost time when ignored
 

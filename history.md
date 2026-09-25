@@ -4721,3 +4721,43 @@ At the user's request, RIMS became brighter. The sidebar is now light: a new tok
 ### Unresolved / Next Steps
 - [ ] The sign-in page's left panel is still the dark brand panel; offered to lighten it.
 ---
+
+---
+## Session: 2026-09-25 — Weekly performance reports: share, email, and send automatically every Monday
+
+**Date:** 2026-09-25
+**Tags:** #session #backend #frontend #database #config
+
+### Summary
+The weekly report existed only as a filter on the preview page (2026-08-31). It can now be shared and emailed like the monthly one, and it goes out **automatically every Monday 08:00 Bangkok** for the week just ended — asked for because Pandora needs weekly reports. A robot is switched on by setting its cadence to **Weekly** in Tools → Robots; the user chose weekly *instead of* monthly (cadence stays one value per robot, no new column) and *one email per customer* (a weekly customer bundle, like the monthly one). Throughout, a stored "month" became a **period key** — `2026-08` or `2026-W38` — whose own shape says which it is, read back by `ReportPeriod.parse`. Two migrations widen the three `report_month` columns from 7 to 8 characters. Backend suite: **459 pass** (under JDK 21 — see Decisions). Frontend `tsc --noEmit` clean. Both branches are committed locally and **not pushed**; nothing is deployed.
+
+Also diagnosed this session, no code change: a robot showing **0 tasks for August** with 31 rows synced was the contract clip working — its contract starts 2026-09-01. An earlier "Remote host terminated the handshake" sync error came from Gausium's side and did not recur.
+
+### Files Modified
+- [[V59__widen_report_period_keys_for_weeks]] / [[V60__widen_customer_report_link_period_key]] (`RaasPal-Internal-Ops-backend/src/main/resources/db/migration/`) — **new.** `VARCHAR(7)` → `VARCHAR(8)` on `report_links`, `report_sends`, `customer_report_links`. Metadata-only in Postgres; safe ahead of the code. **Not executed against Postgres** (Docker was down; tests run Flyway-off) — same statement form as V37, which ran in production
+- [[ReportPeriod]] — `parse(key)`, `fromRequest(month, week)` (the one "exactly one of month/week" rule for preview, link, email and delivery endpoints), `weekContaining(date)`
+- [[ReportLinkService]] / [[ReportCacheService]] / [[ReportEmailService]] — period-aware links, cache and email; the email says **ประจำสัปดาห์** ("for the week of") for a week and is unchanged for a month
+- [[CustomerReportBundleService]] — period-aware; a **weekly bundle holds only the customer's WEEKLY robots**, the monthly bundle's contents are unchanged
+- [[ReportDeliveryService]] — `deliverForPeriod`; a month's run picks MONTHLY robots, a week's run WEEKLY robots; same already-sent skip per period
+- [[WeeklyReportDeliveryScheduler]] — **new.** Cron `0 0 8 * * MON`, own switch `REPORT_WEEKLY_SCHEDULER_ENABLED` (off by default)
+- [[ReportDeliveryController]] / [[ReportLinkController]] / [[ReportEmailController]] / [[ReportPreviewController]] — accept `week` as well as `month`
+- `deploy/DEPLOYMENT.md`, `deploy/api.env.example`, `deploy/preview/preview.env.example` — weekly switch documented; **preview must keep it off**
+- Tests: [[WeeklyReportSendTest]] (7), [[WeeklyReportDeliveryTest]] (6), [[WeeklyReportDeliverySchedulerTest]] (3)
+- [[RobotsPanel]] (`robot-recommendation-web-raaspal`) — **Weekly** is back in the cadence picker (it had been left out "because nothing sent weekly")
+- [[ReportPreviewPanel]] — share and email buttons work in Weekly mode
+- [[ReportAutomationPanel]] — Monthly / Weekly toggle for run now, single send and history
+
+### Decisions Made
+- **Weekly instead of monthly** (user's call): reuses the existing per-robot cadence. A customer with some robots Monthly and some Weekly still gets *all* robots in the monthly email — the monthly bundle was deliberately not changed, since filtering it would drop the 166 `OFF` robots from customers' monthly reports.
+- **One email per customer** (user's call): a weekly customer bundle, symmetric with monthly.
+- **Weekly sends unreviewed — deliberately.** `deploy/` says the monthly scheduler stays off forever because reports are reviewed by hand first. The weekly one is the documented exception; the robot's cadence is the brake.
+- **Separate switch** so weekly can go live while monthly automation stays off.
+- **Period keys, not a period-type column**: the key's shape carries the type, so no schema beyond widening.
+- **JDK 21 for tests.** The machine's default Java is 25; Mockito's Byte Buddy cannot mock concrete classes there and `RobotReportHistoryTest` failed to load. Not a code problem — recorded in [[now]].
+
+### Unresolved / Next Steps
+- [ ] Push and merge `feat/weekly-report-send` (both repos) — awaiting the user's yes. Backend `main` also carries 2 unpushed MK commits from another session, which this branch sits on top of.
+- [ ] Deploy, then `REPORT_WEEKLY_SCHEDULER_ENABLED=true` in `api.env`, then set Pandora's robot to Weekly.
+- [ ] **Verify `MAIL_*` in production `api.env`** — blank on 2026-09-18, which would stop every report email, manual or automatic.
+- [ ] Run the first week by hand from Manage automation → Weekly before relying on Monday.
+---
