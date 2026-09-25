@@ -4832,3 +4832,30 @@ The Team Dashboard gets a **Report cadence** row — Monthly / Weekly / Off — 
 - [ ] The "How automated delivery works" strip is out of date (monthly scheduler is off; weekly not mentioned) — kept by the user's choice.
 - [ ] 17 delivery robots are set to Monthly but never emailed — harmless, but misleading in Tools → Robots.
 ---
+
+---
+## Session: 2026-09-25e — Dashboard delivery tracking, customer deep link, RIMS type scale
+
+**Date:** 2026-09-25
+**Tags:** #session #frontend
+
+### Summary
+The dashboard's delivery tiles were misleading: "Sent this month 28" counted **send rows** (26 customers — some were emailed twice), and "Customers 78" counted every customer record, including delivery-only and robot-less customers who never get a report. Everything now comes from one calculation, [[report-tracking]]. A customer is **due** a report when they have an active cleaning robot under contract in the period, on that period's cadence (monthly: every robot except Weekly ones; weekly: only Weekly). Each due customer is exactly one of **sent / needs attention / not sent yet**. A single-robot email counts as sent once it covers every robot the customer is due for; all 6 such customers in August had one robot. Checked against production data before building: **August — 70 due, 25 sent (19 company link, 6 single-robot), 45 not sent, 0 failed, 1 emailed but not due, 1 waiting with no contact email; week 38 — 1 due, 1 sent.** The KPI row now shows monthly sent / not sent / needs attention and weekly sent. A new tracking list names the customers in each state, and each row opens that customer's company report through the new `/reports?tab=company&customer=<id>` deep link. The Monthly delivery card's coverage is now sent out of due, not bundles out of all 78.
+
+The console's **text sizes now match RIMS**: `text-sm` 14→13px, `text-base` 16→15px, body 14px at 1.55. Spacing was left alone because the shells already match (240px sidebar, 56px top bar); scaling everything down would have made the console smaller than RIMS.
+
+### Files Modified
+- [[report-tracking]] (`lib/report-tracking.ts`) / `lib/use-report-tracking.ts` — **new**
+- [[ReportTrackingList]] — **new**; [[ReportDeliveryStats]] — new tiles; [[MonthlyDeliveryCard]] — coverage = sent / due
+- `app/[locale]/reports/page.tsx`, [[ReportsClient]], [[CustomerBundlePanel]] — `customer` URL parameter
+- `app/globals.css` — RIMS type scale
+- `messages/en.json`, `messages/th.json` — `teamDashboard.reportKpi` rewritten, `teamDashboard.tracking` new
+
+### Decisions Made
+- **Count customers, not sends; due, not all customers.**
+- **Match RIMS's type scale, not a uniform zoom.**
+
+### Unresolved / Next Steps
+- [ ] Push `feat/dashboard-report-cadence` (frontend, now 6 commits) — awaiting the user's yes. The type-scale change applies to every page.
+- [ ] `CustomerBundlePanel` has 2 pre-existing `react-hooks/set-state-in-effect` lint errors (not from this work).
+---
