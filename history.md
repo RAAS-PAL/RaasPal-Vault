@@ -4889,3 +4889,16 @@ At the user's request, the six Pending cases tabs on `ops.raaspal.com/reports` n
 - [ ] Deploy the backend before or together with the frontend. Until then, every held row reads as "not split".
 - [ ] Committed on `main` — backend `bd4ea2e`, frontend `286e469` — **not pushed**: the session's permission guard blocked the push, so the user pushes and deploys (Lightsail `git pull` + `deploy/deploy.sh`; Vercel builds on push).
 ---
+
+---
+## Session: 2026-09-25 — MK spare parts: part photos and Reset PIN live
+
+**Date:** 2026-09-25
+**Tags:** #session #frontend #backend #database #deployment
+
+### Summary
+Two MK spare-parts additions are now live. **Part photos:** one photo per part, stored in its own table `mk_spare_part_image` (**V58**) so the stock list never loads image data. Photos are resized in the browser (long edge 1200 px) by the existing `RobotImagePicker`, which also offers the phone camera, and served through RIMS proxies: `/api/image/mk-part/{id}` for staff and `/mk/image/{id}` for MK, the latter needing MK's view session. RIMS `serverActions.bodySizeLimit` was raised to 2 MB. **Reset PIN:** an admin-only one-click reset (`POST /api/v1/mk-stock/access/pin/reset`) that makes a random non-trivial 6-digit PIN, shows it once, and signs MK out. The backend commits (`d18bcfa`, `5faf877`) were already on `main` and deployed; the live public image endpoint answered with the MK-session message. RIMS was pushed 2026-09-25 (`1165c32`) and served by Vercel about 45 s later. Also written: a tested SQL script to delete MK test data (switches off the movement append-only trigger for the delete only), in `D:\Work\SoftwareWorkSpace\temp\mk-delete-test-data.sql`.
+
+### Unresolved / Next Steps
+- [ ] MK stock movements: a Movements page (all movements, filters, Excel export) and structured "where it went" fields on stock out (branch / robot serial / details) were offered; waiting on the user's answers.
+---
