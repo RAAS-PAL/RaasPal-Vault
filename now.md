@@ -48,7 +48,7 @@ empty state.
 ## Database
 
 - Highest migration on `main` is **V60** (`V60__widen_customer_report_link_period_key.sql`). **Production is at V60**: V58, V59 and V60 applied 2026-09-25 02:50Z ("Successfully applied 3 migrations", deploy log). Next free number is **V61**.
-- **Lightsail runs `d00af7f`** = backend `main` (deployed by the user 2026-09-25 02:49Z; checked on the box). Frontend `main` is `61f159d`, live on `ops.raaspal.com` since 2026-09-25 (new bundle confirmed).
+- **Lightsail runs `d00af7f`**; backend `main` is **`bd4ea2e`** (pending-case hold split, no migration) — **user deploying it 2026-09-25**; re-check on the box. Frontend `main` is `286e469`, live on `ops.raaspal.com` 2026-09-25 (`/en/reports/cases/mk` 404 → 200). See [[history]] 2026-09-25f.
 - Logo files: `public/raas-pal-{logo,wordmark}.png` are the brand-blue **website** versions;
   `*-print.png` are the originals and are what the printed reports use. Do not recolour those.
 - ⚠️ **The ops email alert has never run in production**: `api.env` has no `OPS_ALERTS_*` and blank
