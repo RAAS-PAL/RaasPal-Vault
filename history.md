@@ -4859,3 +4859,33 @@ The console's **text sizes now match RIMS**: `text-sm` 14→13px, `text-base` 16
 - [ ] Push `feat/dashboard-report-cadence` (frontend, now 6 commits) — awaiting the user's yes. The type-scale change applies to every page.
 - [ ] `CustomerBundlePanel` has 2 pre-existing `react-hooks/set-state-in-effect` lint errors (not from this work).
 ---
+
+---
+## Session: 2026-09-25f — Pending-case tabs become a summary; held cases split MK vs RaasPal
+
+**Date:** 2026-09-25
+**Tags:** #session #frontend #backend
+
+### Summary
+At the user's request, the six Pending cases tabs on `ops.raaspal.com/reports` no longer print the whole sheet. Each tab now shows the date, Generate, Regenerate and Export Excel, plus five tiles: **Total cases, Within SLA, Over SLA, `<customer>` on hold, RaasPal on hold**. A **View case details** link opens the full table at the new route `/reports/cases/[slug]?date=YYYY-MM-DD`. That page has everything the tab had before, including Add row and the row edit, remove and restore buttons. Both views share one query key, so opening the details after Generate reuses the cached rows. The split of held cases is new data. Neither monday board has an "MK hold" or "RaasPal hold" label, only a plain `On Hold` in Status and in Sup Status. **The user chose: Status = On Hold → the customer's (MK's) hold; Sup Status = On Hold → RaasPal's.** A case held in both counts as the customer's. [[SlaCalculator]]`.heldBy` computes it, and every generator stamps it on the row as `heldBy` (`CUSTOMER`/`RAASPAL`/null). No migration: rows are stored as JSON, and older frozen rows read `heldBy` as null. The summary shows those as "not split" with a prompt to regenerate. A past date cannot be regenerated, so reports from before this change stay unsplit.
+
+### Files Modified
+- [[CaseReportRow]] (`casereport/dto/CaseReportRow.java`) — `heldBy` component, `HELD_BY_*` constants, `withHeldBy`
+- [[SlaCalculator]] — static `heldBy(status, supStatus)`
+- [[MkPendingReportGenerator]], [[CleaningPendingReportGenerator]], [[AotgaReportGenerator]] — stamp `heldBy`
+- [[CaseReportRunService]] — a hand edit keeps `heldBy` while the row stays held and drops it otherwise
+- `SlaCalculatorTest`, `MkPendingReportGeneratorTest`, `CaseReportExcelWriterTest` — new rule pinned; 461 backend tests pass on JDK 21
+- [[CasePendingPanel]] (`components/CasePendingPanel.tsx`) — component renamed `CaseReportSheet` (the details view); exports `useCaseReport`, `countCases`; specs gain `holdOwner`, `heldElsewhere`
+- [[CasePendingSummary]] (`components/CasePendingSummary.tsx`) — **new**, the tab view
+- `app/[locale]/reports/cases/[slug]/page.tsx`, `CaseReportDetailClient.tsx` — **new** details route
+- [[ReportsClient]] — tabs render the summary; `types/api.ts` — `heldBy`, `CaseHeldBy`
+
+### Decisions Made
+- **Status is the customer's hold, Sup Status is RaasPal's:** the user's call. The board has no owner-specific label.
+- **Details on their own page, not an expander:** the user asked for a link. A URL with the date can also be shared.
+- **Cleaning, Makro and Delivery still show the on-hold tiles, at 0 and captioned "listed on the On Hold tab":** they send held cases to On Hold, and an unexplained 0 would read as "none held".
+
+### Unresolved / Next Steps
+- [ ] Deploy the backend before or together with the frontend. Until then, every held row reads as "not split".
+- [ ] Committed on `main` — backend `bd4ea2e`, frontend `286e469` — **not pushed**: the session's permission guard blocked the push, so the user pushes and deploys (Lightsail `git pull` + `deploy/deploy.sh`; Vercel builds on push).
+---
